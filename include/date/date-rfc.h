@@ -227,6 +227,44 @@ optional_t<Args...> optional(Args&& ...args)
 }
 
 // ----------------------------------------------------------------------------
+template <class ...Args>
+struct branch_t
+{
+    enum : unsigned { max_length = args_traits<Args...>::max_length };
+    enum : bool     { need_cache = false };
+
+    branch_t(Args&& ...args) 
+        : elements(std::forward<Args>(args)...) {}
+
+    std::tuple<Args...> elements;
+};
+
+template <class ...Args>
+branch_t<Args...> branch(Args&& ...args)
+{
+    return branch_t<Args...>(std::forward<Args>(args)...);
+}
+
+// ----------------------------------------------------------------------------
+template <class ...Args>
+struct cases_t
+{
+    enum : unsigned { max_length = args_traits<Args...>::max_length };
+    enum : bool     { need_cache = true };
+
+    cases_t(Args&& ...args) 
+        : cases(std::forward<Args>(args)...) {}
+
+    std::tuple<Args...> cases;
+};
+
+template <class ...Args>
+cases_t<Args...> cases(Args&& ...args)
+{
+    return cases_t<Args...>(std::forward<Args>(args)...);
+}
+
+// ----------------------------------------------------------------------------
 template <class CharT, class Traits>
 void read_char(std::basic_istream<CharT, Traits>& stream, size_t& pos, CharT fmt)
 {
@@ -319,37 +357,85 @@ IndexT read_abbr(std::basic_istream<CharT, Traits>& stream, size_t& pos, const I
 
 // ----------------------------------------------------------------------------
 template<unsigned N>
-struct read_opts_t
+struct opts_reader_t
 {
     template <class CharT, class Traits, typename... TupleT>
-    static void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, std::tuple<TupleT...>& opts)
+    static void read(std::basic_istream<CharT, Traits>& stream, size_t& pos, std::tuple<TupleT...>& opts)
     {
-        details::read_opts_t<N - 1>::read_impl(stream, pos, opts);
-        details::read_impl(stream, pos, std::get<N - 1>(opts));
+        opts_reader_t<N - 1>::read(stream, pos, opts);
+        read_impl(stream, pos, std::get<N - 1>(opts));
     }
 };
 
 template<>
-struct read_opts_t<0>
+struct opts_reader_t<0>
 {
     template <class CharT, class Traits, typename... TupleT>
-    static void read_impl(std::basic_istream<CharT, Traits>&, size_t&, std::tuple<TupleT...>&)
+    static void read(std::basic_istream<CharT, Traits>&, size_t&, std::tuple<TupleT...>&)
     {}
 };
 
-template<class CharT, class Traits, typename... TupleT>
+template <class CharT, class Traits, typename... TupleT>
 void read_opts(std::basic_istream<CharT, Traits>& stream, size_t& pos, std::tuple<TupleT...>& opts)
 {
     const size_t begin = pos;
     try
     {
-        read_opts_t<sizeof...(TupleT)>::read_impl(stream, pos, opts);
+        typedef opts_reader_t<sizeof...(TupleT)> opts_reader;
+        opts_reader::read(stream, pos, opts);
     }
     catch (const std::logic_error&)
     {
         for (; pos > begin; --pos)
             stream.unget();
     }
+}
+
+// ----------------------------------------------------------------------------
+template <class CharT, class Traits, typename... TupleT>
+void read_branch(std::basic_istream<CharT, Traits>& stream, size_t& pos, std::tuple<TupleT...>& elements)
+{
+    typedef opts_reader_t<sizeof...(TupleT)> branch_reader;
+    branch_reader::read(stream, pos, elements);
+}
+
+// ----------------------------------------------------------------------------
+template<unsigned Count, unsigned N>
+struct cases_reader_t
+{
+    template <class CharT, class Traits, typename... TupleT>
+    static void read(std::basic_istream<CharT, Traits>& stream, size_t& pos, std::tuple<TupleT...>& cases)
+    {
+        const std::size_t begin = pos;
+        try
+        {
+            read_impl(stream, pos, std::get<Count - N>(cases));
+        }
+        catch (const std::logic_error&)
+        {
+            for (; pos > begin; --pos)
+                stream.unget();
+
+            cases_reader_t<Count, N - 1>::read(stream, pos, cases);
+        }
+    }
+};
+
+template<unsigned Count>
+struct cases_reader_t<Count, 0>
+{
+    template <class CharT, class Traits, typename... TupleT>
+    static void read(std::basic_istream<CharT, Traits>&, size_t& pos, std::tuple<TupleT...>&)
+    {
+        throw std::logic_error(std::string("no matching cases at ") + std::to_string(pos));
+    }
+};
+
+template <class CharT, class Traits, typename... TupleT>
+void read_cases(std::basic_istream<CharT, Traits>& stream, size_t& pos, std::tuple<TupleT...>& cases)
+{
+    typedef cases_reader_t<sizeof...(TupleT), sizeof...(TupleT)> cases_reader;
+    cases_reader::read(stream, pos, cases);
 }
 
 // ----------------------------------------------------------------------------
@@ -403,7 +489,7 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, rs_t<Sign
 
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, class IndexT, class IteratorT, unsigned MaxLength, class ...Args>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<IndexT, IteratorT, MaxLength> a0, Args&& ...args)
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<IndexT, IteratorT, MaxLength>& a0, Args&& ...args)
 {
     static_assert(MaxLength < abbr_max_len, "Exceeded the allowed length for ra object passed into read operation.");
     a0.index = read_abbr<IndexT>(stream, pos, a0.values_begin, a0.values_end, MaxLength);
@@ -412,9 +498,24 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<Inde
 
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, class ...OptArgs, class ...Args>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, optional_t<OptArgs...> a0, Args&& ...args)
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, optional_t<OptArgs...>& a0, Args&& ...args)
 {
     read_opts(stream, pos, a0.opts);
+    read_impl(stream, pos, std::forward<Args>(args)...);
+}
+
+// ----------------------------------------------------------------------------
+template <class CharT, class Traits, class ...BranchArgs>
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, branch_t<BranchArgs...>& a0)
+{
+    read_branch(stream, pos, a0.elements);
+}
+
+// ----------------------------------------------------------------------------
+template <class CharT, class Traits, class ...CasesArgs, class ...Args>
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, cases_t<CasesArgs...>& a0, Args&& ...args)
+{
+    read_cases(stream, pos, a0.cases);
     read_impl(stream, pos, std::forward<Args>(args)...);
 }
 
@@ -440,12 +541,6 @@ public:
         std::memset(m_cache, 0, sizeof(int_type) * CacheSize);
     }
 
-protected:
-    int_type overflow(int_type c) override final
-    {
-        return traits_type::eof();
-    }
-    
 protected:
     std::streamsize showmanyc() override final
     {
@@ -488,10 +583,10 @@ private:
 //                           reading entry point
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, unsigned MaxLength = 0, bool NeedCache = false>
-struct stream_wrapper
+struct stream_wrapper_t
 {
-    explicit stream_wrapper(std::basic_istream<CharT, Traits>& _stream) 
-        : stream(_stream) 
+    explicit stream_wrapper_t(std::basic_istream<CharT, Traits>& wrapped_stream) 
+        : stream(wrapped_stream) 
     {}
 
     std::basic_istream<CharT, Traits>& stream;
@@ -499,10 +594,10 @@ struct stream_wrapper
 
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, unsigned MaxLength>
-struct stream_wrapper<CharT, Traits, MaxLength, true>
+struct stream_wrapper_t<CharT, Traits, MaxLength, true>
 {
-    explicit stream_wrapper(std::basic_istream<CharT, Traits>& _stream)
-        : cache(_stream) 
+    explicit stream_wrapper_t(std::basic_istream<CharT, Traits>& wrapped_stream)
+        : cache(wrapped_stream) 
         , stream(&cache) 
     {}
 
@@ -511,13 +606,20 @@ struct stream_wrapper<CharT, Traits, MaxLength, true>
 };
 
 // ----------------------------------------------------------------------------
+template <bool NeedCache, unsigned MaxLength, class CharT, class Traits>
+stream_wrapper_t<CharT, Traits, MaxLength, NeedCache> stream_wrapper(std::basic_istream<CharT, Traits>& stream)
+{
+    return stream_wrapper_t<CharT, Traits, MaxLength, NeedCache>(stream);
+}
+
+// ----------------------------------------------------------------------------
 template <class CharT, class Traits, class ...Args>
 void read(std::basic_istream<CharT, Traits>& stream, size_t& pos, Args&& ...args)
 {
-    enum : unsigned { max_length = args_traits<Args...>::max_length };
     enum : bool     { need_cache = args_traits<Args...>::need_cache };
+    enum : unsigned { max_length = args_traits<Args...>::max_length };
 
-    stream_wrapper<CharT, Traits, max_length, need_cache> wrapper(stream);
+    auto wrapper = stream_wrapper<need_cache, max_length>(stream);
     read_impl(wrapper.stream, pos, std::forward<Args>(args)...);
 }
 
@@ -533,49 +635,41 @@ namespace format
 struct rfc1123
 {
     template <class CharT, class Traits, class Alloc = std::allocator<CharT>>
-    static dt_parts read(std::basic_istream<CharT, Traits>& stream, const rfc1123& fmt, std::basic_string<CharT, Traits, Alloc>* _zone, int* _offset)
+    static dt_parts read(std::basic_istream<CharT, Traits>& stream, const rfc1123& fmt, std::basic_string<CharT, Traits, Alloc>* zone, int* offset)
     {
         using namespace details;
         using details::read;
         
-        typedef std::remove_pointer<decltype(_offset)>::type dt_offset;
-        typedef std::remove_pointer<decltype(_zone)>::type   dt_zone;
+        typedef std::remove_pointer<decltype(offset)>::type dt_offset;
+        typedef std::remove_pointer<decltype(zone)>::type   dt_zone;
 
         dt_parts  parts{};
-        dt_offset offset{};
-        dt_zone   zone{};
 
         size_t pos = 0;
         skip_spaces(stream, pos);
         if (stream.eof())
             throw std::logic_error(std::string("unexpected eof at ") + std::to_string(pos));
+        
+        int offset_hour{};
+        int offset_minute{};
+        size_t zone_index(-1);
+        
+        const auto weekday_names = weekday_names_short();
+        const auto month_names = month_names_short();
+        const auto zone_names = zone_names_rfc822();
 
         read(stream, pos, 
-            optional(ra<3>(parts.weekday, weekday_names_short()), rc(','), rc(' ')),
-            ru<1,2>(parts.day), rc(' '), ra<3>(parts.month, month_names_short()), rc(' '), ru<2,4>(parts.year), rc(' '), 
-            ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), optional(rc(':'), ru<2,2>(parts.second)), rc(' '));
-        
-        auto ic = stream.peek();
-        auto c = static_cast<char>(Traits::to_char_type(ic));
-        if (c == '+' || c == '-')
-        {
-            int offset_hour{};
-            int offset_minute{};
-            read(stream, pos, rs<2,2>(offset_hour), ru<2,2>(offset_minute));
-            offset = (offset_hour * 60 + offset_minute) * 60;
-        }
-        else
-        {
-            size_t zone_index{};
-            const auto zone_names = zone_names_rfc822();
-            read(stream, pos, ra<3>(zone_index, zone_names));
-            zone = std::move(dt_zone(*(zone_names.first + zone_index)));
-        }
+            optional(ra<3>(parts.weekday, weekday_names), rc(','), rc(' ')),
+            ru<1,2>(parts.day), rc(' '), ra<3>(parts.month, month_names), rc(' '), ru<2,4>(parts.year), rc(' '), 
+            ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), optional(rc(':'), ru<2,2>(parts.second)), rc(' '),
+            cases(
+                branch(rs<2,2>(offset_hour), ru<2,2>(offset_minute)),
+                branch(ra<3>(zone_index, zone_names))));
 
-        if (_offset)
-            *_offset = offset;
-        if (_zone)
-            *_zone = std::move(zone);
+        if (offset)
+            *offset = (offset_hour * 60 + offset_minute) * 60;
+        if (zone && zone_index != -1)
+            *zone = std::move(dt_zone(*(zone_names.first + zone_index)));
 
         return parts;
     }
