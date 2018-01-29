@@ -1,0 +1,125 @@
+#include <string>
+#include <iostream>
+#include <sstream>
+#include <cwchar>
+#include <date/date-rfc.h>
+
+// ----------------------------------------------------------------------------
+const char* zone_name(const std::string* zone)
+{
+    return (!zone || zone->empty() ? "{empty}" : zone->c_str());
+}
+
+const wchar_t* zone_name(const std::wstring* zone)
+{
+    return (!zone || zone->empty() ? L"{empty}" : zone->c_str());
+}
+
+// ----------------------------------------------------------------------------
+template <>
+struct date::dt_traits<std::time_t>
+{
+    template <class CharT, class Traits, class Alloc = std::allocator<CharT>>
+    static std::time_t join(const dt_parts& p, std::basic_string<CharT, Traits, Alloc>* zone, int32_t* offset)
+    {
+        std::cout 
+            << "year = "        << static_cast<int>(p.year) 
+            << ", month = "     << static_cast<int>(p.month) 
+            << ", day = "       << static_cast<int>(p.day) 
+            << ", weekday = "   << static_cast<int>(p.weekday) 
+            << ", hour = "      << static_cast<int>(p.hour) 
+            << ", minute = "    << static_cast<int>(p.minute) 
+            << ", second = "    << static_cast<int>(p.second) 
+            << ", nsecond = "   << static_cast<int>(p.nanosecond)
+            << ", zone = "      << zone_name(zone) 
+            << ", offset = "      << (!offset ? 0 : *offset) 
+            << std::endl;
+
+        int64_t value = (p.year - 1970) * 365
+            + static_cast<int64_t>(std::trunc((p.year - 1) / 4))
+            - static_cast<int64_t>(std::trunc((p.year - 1) / 100))
+            + static_cast<int64_t>(std::trunc((p.year - 1) / 400));
+
+        return 0;
+    }
+};
+
+// ----------------------------------------------------------------------------
+void check_rfc1123()
+{
+    const std::string values[] = {
+        std::string("Tue, 31 Dec 2010 23:59:59 GMT"),
+        std::string("Tue, 31 Dec 2010 23:59:59 EDT"),
+        std::string("Tue, 31 Dec 2010 23:59:59 +0430"),
+        std::string("31 Dec 2010 23:59:59 GMT"),
+        std::string("31 Dec 2010 23:59:59 EDT"),
+        std::string("31 Dec 2010 23:59:59 +0430"),
+        std::string("31 Dec 2010 23:59 GMT"),
+        std::string("31 Dec 2010 23:59 EDT"),
+        std::string("31 Dec 2010 23:59 +0430"),
+    };
+
+    for (auto value : values)
+    {
+        std::cout << "-----------------------------------------" << std::endl;
+        std::cerr << "Value: " << value << std::endl;
+
+        std::istringstream stream(value);
+        std::time_t dt; 
+        try 
+        { 
+            date::from_stream(stream, date::rfc1123(), dt); 
+        }
+        catch (std::exception& e)
+        { 
+            std::cout << "Exception: " << e.what() << std::endl; 
+        }
+
+        std::cout << "Result: failbit = " << (stream.fail() ? "true" : "false") << ", dt = " << dt << std::endl;
+    }
+}
+
+// ----------------------------------------------------------------------------
+void check_rfc3339()
+{
+    const std::string values[] = {
+        std::string("1985-04-12T23:20:50.52Z"),
+        std::string("1996-12-19T16:39:57-08:00"),
+        std::string("1990-12-31T23:59:60Z"),
+        std::string("1990-12-31T15:59:60+08:00"),
+        std::string("1937-01-01T12:00:27.87+00:20"),
+    };
+
+    for (auto value : values)
+    {
+        std::cout << "-----------------------------------------" << std::endl;
+        std::cerr << "Value: " << value << std::endl;
+
+        std::istringstream stream(value);
+        std::time_t dt; 
+        try 
+        { 
+            date::from_stream(stream, date::rfc3339(), dt); 
+        }
+        catch (std::exception& e)
+        { 
+            std::cout << "Exception: " << e.what() << std::endl; 
+        }
+
+        std::cout << "Result: failbit = " << (stream.fail() ? "true" : "false") << ", dt = " << dt << std::endl;
+    }
+}
+
+// ----------------------------------------------------------------------------
+int main(int argc, char* argv[])
+{
+    //std::cout << "-----------------------------------------" << std::endl;
+    //std::cout << " Checking RFC1123..." << std::endl;
+    //check_rfc1123();
+    
+    std::cout << "-----------------------------------------" << std::endl;
+    std::cout << " Checking RFC3339..." << std::endl;
+    check_rfc3339();
+
+	return 0;
+}
