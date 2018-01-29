@@ -37,6 +37,13 @@
 namespace date
 {
 
+//! TODO list:
+//  - rs_t structure: add the flag to determine whether sign symbol mandatory or not
+//  - read_abbr method: implement more efficient items comparison algorithm
+//  - format structures: add method for reading dates from c-string based on custom streambuf
+//  - custom CharT: fix compilation errors for custom CharT usage (not simple char type)
+//  - C++ features: use constexpr and other feaures.
+
 // ----------------------------------------------------------------------------
 //                                common
 // ----------------------------------------------------------------------------
@@ -113,6 +120,7 @@ struct args_traits;
 template <class T>
 struct args_traits<T>
 {
+    enum : unsigned { min_length = T::min_length };
     enum : unsigned { max_length = T::max_length };
     enum : bool     { need_cache = T::need_cache };
 };
@@ -120,8 +128,35 @@ struct args_traits<T>
 template <class T, class ...Args>
 struct args_traits
 {
+    enum : unsigned { min_length = T::min_length + args_traits<Args...>::min_length };
     enum : unsigned { max_length = T::max_length + args_traits<Args...>::max_length };
     enum : bool     { need_cache = T::need_cache | args_traits<Args...>::need_cache };
+};
+
+// ----------------------------------------------------------------------------
+template <class T, class ...Args>
+struct cases_args_traits;
+
+template <class T1, class T2>
+struct cases_args_traits<T1, T2>
+{
+    typedef typename std::conditional<(T1::min_length < T2::min_length), T1, T2>::type min_type;
+    typedef typename std::conditional<(T1::max_length > T2::max_length), T1, T2>::type max_type;
+
+    enum : unsigned { min_length = min_type::min_length };
+    enum : unsigned { max_length = max_type::max_length };
+};
+
+template <class T, class ...Args>
+struct cases_args_traits
+{
+    typedef typename cases_args_traits<Args...>::min_type _args_min_type;
+    typedef typename cases_args_traits<Args...>::max_type _args_max_type;
+    typedef typename std::conditional<(T::min_length < _args_min_type::min_length), T, _args_min_type>::type min_type;
+    typedef typename std::conditional<(T::max_length > _args_max_type::max_length), T, _args_max_type>::type max_type;
+
+    enum : unsigned { min_length = min_type::min_length };
+    enum : unsigned { max_length = max_type::max_length };
 };
 
 // ----------------------------------------------------------------------------
@@ -166,7 +201,7 @@ struct rs_t
 {
     typedef SignedT value_type;
     enum : unsigned { min_length = MinLength };
-    enum : unsigned { max_length = MaxLength };
+    enum : unsigned { max_length = MaxLength + 1 }; //!< Plus one character for sign.
     enum : bool     { need_cache = false };
 
     value_type& value;
@@ -179,11 +214,12 @@ static rs_t<SignedT, MinLength, MaxLength> rs(SignedT& value)
 }
 
 // ----------------------------------------------------------------------------
-template <class IndexT, class IteratorT, unsigned MaxLength>
+template <class IndexT, class IteratorT, unsigned MinLength, unsigned MaxLength>
 struct ra_t
 {
     typedef IndexT      index_type;
     typedef IteratorT   iterator_type;
+    enum : unsigned { min_length = MinLength };
     enum : unsigned { max_length = MaxLength };
     enum : bool     { need_cache = false };
 
@@ -195,22 +231,23 @@ struct ra_t
     iterator_type values_end;
 };
 
-template <unsigned MaxLength, class IndexT, class IteratorT>
-static ra_t<IndexT, IteratorT, MaxLength> ra(IndexT& index, const IteratorT& values_begin, const IteratorT& values_end)
+template <unsigned MinLength, unsigned MaxLength, class IndexT, class IteratorT>
+static ra_t<IndexT, IteratorT, MinLength, MaxLength> ra(IndexT& index, const IteratorT& values_begin, const IteratorT& values_end)
 {
-    return ra_t<IndexT, IteratorT, MaxLength>{ index, values_begin, values_end };
+    return ra_t<IndexT, IteratorT, MinLength, MaxLength>{ index, values_begin, values_end };
 }
 
-template <unsigned MaxLength, class IndexT, class IteratorT>
-static ra_t<IndexT, IteratorT, MaxLength> ra(IndexT& index, const std::pair<IteratorT, IteratorT>& values_range)
+template <unsigned MinLength, unsigned MaxLength, class IndexT, class IteratorT>
+static ra_t<IndexT, IteratorT, MinLength, MaxLength> ra(IndexT& index, const std::pair<IteratorT, IteratorT>& values_range)
 {
-    return ra<MaxLength>(index, values_range.first, values_range.second);
+    return ra<MinLength, MaxLength>(index, values_range.first, values_range.second);
 }
 
 // ----------------------------------------------------------------------------
 template <class ...Args>
 struct optional_t
 {
+    enum : unsigned { min_length = 0 };
     enum : unsigned { max_length = args_traits<Args...>::max_length };
     enum : bool     { need_cache = true };
 
@@ -230,6 +267,7 @@ optional_t<Args...> optional(Args&& ...args)
 template <class ...Args>
 struct branch_t
 {
+    enum : unsigned { min_length = args_traits<Args...>::min_length };
     enum : unsigned { max_length = args_traits<Args...>::max_length };
     enum : bool     { need_cache = false };
 
@@ -249,7 +287,8 @@ branch_t<Args...> branch(Args&& ...args)
 template <class ...Args>
 struct cases_t
 {
-    enum : unsigned { max_length = args_traits<Args...>::max_length };
+    enum : unsigned { min_length = cases_args_traits<Args...>::min_length };
+    enum : unsigned { max_length = cases_args_traits<Args...>::max_length };
     enum : bool     { need_cache = true };
 
     cases_t(Args&& ...args) 
@@ -488,8 +527,8 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, rs_t<Sign
 }
 
 // ----------------------------------------------------------------------------
-template <class CharT, class Traits, class IndexT, class IteratorT, unsigned MaxLength, class ...Args>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<IndexT, IteratorT, MaxLength>& a0, Args&& ...args)
+template <class CharT, class Traits, class IndexT, class IteratorT, unsigned MinLength, unsigned MaxLength, class ...Args>
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<IndexT, IteratorT, MinLength, MaxLength>& a0, Args&& ...args)
 {
     static_assert(MaxLength < abbr_max_len, "Exceeded the allowed length for ra object passed into read operation.");
     a0.index = read_abbr<IndexT>(stream, pos, a0.values_begin, a0.values_end, MaxLength);
@@ -520,7 +559,7 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, cases_t<C
 }
 
 // ----------------------------------------------------------------------------
-//                              cached stream
+//                           custom stream buffers
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, std::size_t CacheSize>
 class cached_streambuf : public std::basic_streambuf<CharT, Traits>
@@ -626,11 +665,53 @@ void read(std::basic_istream<CharT, Traits>& stream, size_t& pos, Args&& ...args
 } // namespace details
 
 // ----------------------------------------------------------------------------
-//                                rfc1123
+//                                  rfc822
 // ----------------------------------------------------------------------------
-namespace format
+struct rfc822
 {
-    
+    template <class CharT, class Traits, class Alloc = std::allocator<CharT>>
+    static dt_parts read(std::basic_istream<CharT, Traits>& stream, const rfc822& fmt, std::basic_string<CharT, Traits, Alloc>* zone, int* offset)
+    {
+        using namespace details;
+        using details::read;
+        
+        typedef std::remove_pointer<decltype(offset)>::type dt_offset;
+        typedef std::remove_pointer<decltype(zone)>::type   dt_zone;
+
+        dt_parts  parts{};
+
+        size_t pos = 0;
+        skip_spaces(stream, pos);
+        if (stream.eof())
+            throw std::logic_error(std::string("unexpected eof at ") + std::to_string(pos));
+        
+        int offset_hour{};
+        int offset_minute{};
+        size_t zone_index(-1);
+        
+        const auto weekday_names = weekday_names_short();
+        const auto month_names = month_names_short();
+        const auto zone_names = zone_names_rfc822();
+
+        read(stream, pos, 
+            optional(ra<3,3>(parts.weekday, weekday_names), rc(','), rc(' ')),
+            ru<1,2>(parts.day), rc(' '), ra<3,3>(parts.month, month_names), rc(' '), ru<2,4>(parts.year), rc(' '), 
+            ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), optional(rc(':'), ru<2,2>(parts.second)), rc(' '),
+            cases(
+                branch(rs<2,2>(offset_hour), ru<2,2>(offset_minute)),
+                branch(ra<2,3>(zone_index, zone_names))));
+
+        if (offset)
+            *offset = (offset_hour * 60 + offset_minute) * 60;
+        if (zone && zone_index != -1)
+            *zone = std::move(dt_zone(*(zone_names.first + zone_index)));
+
+        return parts;
+    }
+};
+
+// ----------------------------------------------------------------------------
+//                                 rfc1123
 // ----------------------------------------------------------------------------
 struct rfc1123
 {
@@ -659,12 +740,12 @@ struct rfc1123
         const auto zone_names = zone_names_rfc822();
 
         read(stream, pos, 
-            optional(ra<3>(parts.weekday, weekday_names), rc(','), rc(' ')),
-            ru<1,2>(parts.day), rc(' '), ra<3>(parts.month, month_names), rc(' '), ru<2,4>(parts.year), rc(' '), 
+            optional(ra<3,3>(parts.weekday, weekday_names), rc(','), rc(' ')),
+            ru<1,2>(parts.day), rc(' '), ra<3,3>(parts.month, month_names), rc(' '), ru<2,4>(parts.year), rc(' '), 
             ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), optional(rc(':'), ru<2,2>(parts.second)), rc(' '),
             cases(
                 branch(rs<2,2>(offset_hour), ru<2,2>(offset_minute)),
-                branch(ra<3>(zone_index, zone_names))));
+                branch(ra<2,3>(zone_index, zone_names))));
 
         if (offset)
             *offset = (offset_hour * 60 + offset_minute) * 60;
@@ -675,6 +756,39 @@ struct rfc1123
     }
 };
 
-} // namespace format
+// ----------------------------------------------------------------------------
+//                                 rfc3339
+// ----------------------------------------------------------------------------
+struct rfc3339
+{
+    template <class CharT, class Traits, class Alloc = std::allocator<CharT>>
+    static dt_parts read(std::basic_istream<CharT, Traits>& stream, const rfc3339& fmt, std::basic_string<CharT, Traits, Alloc>* zone, int* offset)
+    {
+        using namespace details;
+        using details::read;
+
+        dt_parts  parts{};
+
+        size_t pos = 0;
+        skip_spaces(stream, pos);
+        if (stream.eof())
+            throw std::logic_error(std::string("unexpected eof at ") + std::to_string(pos));
+        
+        int offset_hour(0);
+        int offset_minute(0);
+
+        read(stream, pos, 
+            ru<4,4>(parts.year), rc('-'), ru<2,2>(parts.month), rc('-'), ru<2,2>(parts.day), rc('T'), 
+            ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), rc(':'), ru<2,2>(parts.second), optional(rc('.'), ru<1,9>(parts.nanosecond)),
+            cases(
+                branch(rc('Z')), 
+                branch(rs<2,2>(offset_hour), rc(':'), ru<2,2>(offset_minute))));
+
+        if (offset)
+            *offset = (offset_hour * 60 + offset_minute) * 60;
+
+        return parts;
+    }
+};
 
 } // namespace date
