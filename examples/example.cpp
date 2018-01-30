@@ -16,23 +16,26 @@ const wchar_t* zone_name(const std::wstring* zone)
 }
 
 // ----------------------------------------------------------------------------
+namespace date
+{
+
 template <>
-struct date::dt_traits<std::time_t>
+struct dt_traits < std::time_t >
 {
     template <class CharT, class Traits, class Alloc = std::allocator<CharT>>
     static std::time_t join(const dt_parts& p, std::basic_string<CharT, Traits, Alloc>* zone, int32_t* offset)
     {
-        std::cout 
-            << "year = "        << static_cast<int>(p.year) 
-            << ", month = "     << static_cast<int>(p.month) 
-            << ", day = "       << static_cast<int>(p.day) 
-            << ", weekday = "   << static_cast<int>(p.weekday) 
-            << ", hour = "      << static_cast<int>(p.hour) 
-            << ", minute = "    << static_cast<int>(p.minute) 
-            << ", second = "    << static_cast<int>(p.second) 
-            << ", nsecond = "   << static_cast<int>(p.nanosecond)
-            << ", zone = "      << zone_name(zone) 
-            << ", offset = "      << (!offset ? 0 : *offset) 
+        std::cout
+            << "year = " << static_cast<int>(p.year)
+            << ", month = " << static_cast<int>(p.month)
+            << ", day = " << static_cast<int>(p.day)
+            << ", weekday = " << static_cast<int>(p.weekday)
+            << ", hour = " << static_cast<int>(p.hour)
+            << ", minute = " << static_cast<int>(p.minute)
+            << ", second = " << static_cast<int>(p.second)
+            << ", nsecond = " << static_cast<int>(p.nanosecond)
+            << ", zone = " << zone_name(zone)
+            << ", offset = " << (!offset ? 0 : *offset)
             << std::endl;
 
         int64_t value = (p.year - 1970) * 365
@@ -43,6 +46,8 @@ struct date::dt_traits<std::time_t>
         return 0;
     }
 };
+
+} // namespace date
 
 // ----------------------------------------------------------------------------
 void check_rfc1123()

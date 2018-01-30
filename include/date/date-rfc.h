@@ -44,23 +44,6 @@ namespace date
 //  - custom CharT: fix compilation errors for custom CharT usage (not simple char type)
 //  - C++ features: use constexpr and other feaures.
 
-// ----------------------------------------------------------------------------
-//                                common
-// ----------------------------------------------------------------------------
-template <typename Format, typename Date, typename Char, typename Traits, class Alloc = std::allocator<Char>>
-std::basic_istream<Char, Traits>& from_stream(std::basic_istream<Char, Traits>& stream, const Format& fmt, Date& value)
-{
-    typedef Format dt_format;
-    typedef std::basic_string<Char, Traits, Alloc> dt_zone;
-
-    dt_parts parts{};
-    dt_zone  zone{};
-    int      offset{};
-
-    parts = dt_format::read<Char, Traits, Alloc>(stream, fmt, &zone, &offset);
-    value = dt_traits<Date>::join<>(parts, &zone, &offset);
-    return stream;
-}
 
 // ----------------------------------------------------------------------------
 //                                traits
@@ -80,6 +63,24 @@ struct dt_parts
 // ----------------------------------------------------------------------------
 template <class Date>
 struct dt_traits;
+
+// ----------------------------------------------------------------------------
+//                                common
+// ----------------------------------------------------------------------------
+template <typename Format, typename Date, typename Char, typename Traits, class Alloc = std::allocator<Char>>
+std::basic_istream<Char, Traits>& from_stream(std::basic_istream<Char, Traits>& stream, const Format& fmt, Date& value)
+{
+    typedef Format dt_format;
+    typedef std::basic_string<Char, Traits, Alloc> dt_zone;
+
+    dt_parts parts{};
+    dt_zone  zone{};
+    int      offset{};
+
+    parts = Format::read(stream, fmt, &zone, &offset);
+    value = dt_traits<Date>::join(parts, &zone, &offset);
+    return stream;
+}
 
 // ----------------------------------------------------------------------------
 //                                details
@@ -375,7 +376,7 @@ template <class IndexT, class IteratorT, class CharT, class Traits, class Alloc 
 IndexT read_abbr(std::basic_istream<CharT, Traits>& stream, size_t& pos, const IteratorT& values_begin, const IteratorT& values_end, unsigned max_len)
 {
     CharT buffer[abbr_max_len];
-    std::memset(buffer, 0, sizeof(buffer[0]) * (max_len + 1));
+    memset(buffer, 0, sizeof(buffer[0]) * (max_len + 1));
     
     for (size_t index = 0; index < max_len; ++index)
     {
@@ -577,7 +578,7 @@ public:
         , m_pos(0)
         , m_len(0)
     {
-        std::memset(m_cache, 0, sizeof(int_type) * CacheSize);
+        memset(m_cache, 0, sizeof(int_type) * CacheSize);
     }
 
 protected:
@@ -676,7 +677,7 @@ struct rfc822
         using details::read;
         
         typedef std::remove_pointer<decltype(offset)>::type dt_offset;
-        typedef std::remove_pointer<decltype(zone)>::type   dt_zone;
+        typedef typename std::remove_pointer<decltype(zone)>::type   dt_zone;
 
         dt_parts  parts{};
 
@@ -722,7 +723,7 @@ struct rfc1123
         using details::read;
         
         typedef std::remove_pointer<decltype(offset)>::type dt_offset;
-        typedef std::remove_pointer<decltype(zone)>::type   dt_zone;
+        typedef typename std::remove_pointer<decltype(zone)>::type   dt_zone;
 
         dt_parts  parts{};
 
