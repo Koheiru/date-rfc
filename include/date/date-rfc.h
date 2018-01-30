@@ -33,6 +33,15 @@
 #include <tuple>
 #include <cassert>
 
+#ifdef __GNUC__
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wpedantic"
+# if __GNUC__ < 5
+//! GCC 4.9 Bug 61489 Wrong warning with -Wmissing-field-initializers.
+#  pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+# endif
+#endif
+
 // ----------------------------------------------------------------------------
 namespace date
 {
@@ -77,7 +86,7 @@ std::basic_istream<Char, Traits>& from_stream(std::basic_istream<Char, Traits>& 
     dt_zone  zone{};
     int      offset{};
 
-    parts = Format::read(stream, fmt, &zone, &offset);
+    parts = dt_format::read(stream, fmt, &zone, &offset);
     value = dt_traits<Date>::join(parts, &zone, &offset);
     return stream;
 }
@@ -135,6 +144,11 @@ struct args_traits
 };
 
 // ----------------------------------------------------------------------------
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wenum-compare"
+#endif  // __GNUC__
+
 template <class T, class ...Args>
 struct cases_args_traits;
 
@@ -159,6 +173,10 @@ struct cases_args_traits
     enum : unsigned { min_length = min_type::min_length };
     enum : unsigned { max_length = max_type::max_length };
 };
+
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif  // __GNUC__
 
 // ----------------------------------------------------------------------------
 template <class CharT>
@@ -529,7 +547,7 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, rs_t<Sign
 
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, class IndexT, class IteratorT, unsigned MinLength, unsigned MaxLength, class ...Args>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<IndexT, IteratorT, MinLength, MaxLength>& a0, Args&& ...args)
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<IndexT, IteratorT, MinLength, MaxLength> a0, Args&& ...args)
 {
     static_assert(MaxLength < abbr_max_len, "Exceeded the allowed length for ra object passed into read operation.");
     a0.index = read_abbr<IndexT>(stream, pos, a0.values_begin, a0.values_end, MaxLength);
@@ -538,7 +556,7 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<Inde
 
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, class ...OptArgs, class ...Args>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, optional_t<OptArgs...>& a0, Args&& ...args)
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, optional_t<OptArgs...> a0, Args&& ...args)
 {
     read_opts(stream, pos, a0.opts);
     read_impl(stream, pos, std::forward<Args>(args)...);
@@ -546,14 +564,14 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, optional_
 
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, class ...BranchArgs>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, branch_t<BranchArgs...>& a0)
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, branch_t<BranchArgs...> a0)
 {
     read_branch(stream, pos, a0.elements);
 }
 
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, class ...CasesArgs, class ...Args>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, cases_t<CasesArgs...>& a0, Args&& ...args)
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, cases_t<CasesArgs...> a0, Args&& ...args)
 {
     read_cases(stream, pos, a0.cases);
     read_impl(stream, pos, std::forward<Args>(args)...);
@@ -577,9 +595,10 @@ public:
         : m_stream(stream)
         , m_pos(0)
         , m_len(0)
-    {
-        memset(m_cache, 0, sizeof(int_type) * CacheSize);
-    }
+    {}
+
+    cached_streambuf(const cached_streambuf&) = delete;
+    cached_streambuf& operator=(const cached_streambuf&) = delete;
 
 protected:
     std::streamsize showmanyc() override final
@@ -625,9 +644,12 @@ private:
 template <class CharT, class Traits, unsigned MaxLength = 0, bool NeedCache = false>
 struct stream_wrapper_t
 {
-    explicit stream_wrapper_t(std::basic_istream<CharT, Traits>& wrapped_stream) 
-        : stream(wrapped_stream) 
+    explicit stream_wrapper_t(std::basic_istream<CharT, Traits>& base_stream) 
+        : stream(base_stream) 
     {}
+
+    stream_wrapper_t(const stream_wrapper_t&) = delete;
+    stream_wrapper_t& operator=(const stream_wrapper_t&) = delete;
 
     std::basic_istream<CharT, Traits>& stream;
 };
@@ -636,21 +658,17 @@ struct stream_wrapper_t
 template <class CharT, class Traits, unsigned MaxLength>
 struct stream_wrapper_t<CharT, Traits, MaxLength, true>
 {
-    explicit stream_wrapper_t(std::basic_istream<CharT, Traits>& wrapped_stream)
-        : cache(wrapped_stream) 
+    explicit stream_wrapper_t(std::basic_istream<CharT, Traits>& base_stream)
+        : cache(base_stream) 
         , stream(&cache) 
     {}
+
+    stream_wrapper_t(const stream_wrapper_t&) = delete;
+    stream_wrapper_t& operator=(const stream_wrapper_t&) = delete;
 
     cached_streambuf<CharT, Traits, MaxLength> cache;
     std::basic_istream<CharT, Traits> stream;
 };
-
-// ----------------------------------------------------------------------------
-template <bool NeedCache, unsigned MaxLength, class CharT, class Traits>
-stream_wrapper_t<CharT, Traits, MaxLength, NeedCache> stream_wrapper(std::basic_istream<CharT, Traits>& stream)
-{
-    return stream_wrapper_t<CharT, Traits, MaxLength, NeedCache>(stream);
-}
 
 // ----------------------------------------------------------------------------
 template <class CharT, class Traits, class ...Args>
@@ -659,7 +677,7 @@ void read(std::basic_istream<CharT, Traits>& stream, size_t& pos, Args&& ...args
     enum : bool     { need_cache = args_traits<Args...>::need_cache };
     enum : unsigned { max_length = args_traits<Args...>::max_length };
 
-    auto wrapper = stream_wrapper<need_cache, max_length>(stream);
+    stream_wrapper_t<CharT, Traits, max_length, need_cache> wrapper(stream);
     read_impl(wrapper.stream, pos, std::forward<Args>(args)...);
 }
 
@@ -793,3 +811,7 @@ struct rfc3339
 };
 
 } // namespace date
+
+#ifdef __GNUC__
+# pragma GCC diagnostic pop
+#endif
