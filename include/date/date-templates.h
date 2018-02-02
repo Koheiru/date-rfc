@@ -46,13 +46,6 @@
 namespace date
 {
 
-//! TODO list:
-//  - rs_t structure: add the flag to determine whether sign symbol mandatory or not
-//  - read_abbr method: implement more efficient items comparison algorithm
-//  - format structures: add method for reading dates from c-string based on custom streambuf
-//  - custom CharT: fix compilation errors for custom CharT usage (not simple char type)
-//  - C++ features: use constexpr and other feaures.
-
 // ----------------------------------------------------------------------------
 //                                details
 // ----------------------------------------------------------------------------
@@ -670,8 +663,26 @@ struct dt_traits
 };
 
 // ----------------------------------------------------------------------------
-template <typename Format, typename Date, typename Char, typename Traits, class Alloc = std::allocator<Char>>
-std::basic_istream<Char, Traits>& from_stream(std::basic_istream<Char, Traits>& stream, const Format& fmt, Date& value)
+template <class Format, class Date>
+struct format_rfc
+{
+    typedef Format format_type;
+    typedef Date   date_type;
+
+    format_rfc(date_type& value, const format_type& format = format_type()) 
+        : m_value(value), m_format(format) {}
+    
+    template <class T, class U, typename Char, typename Traits, class Alloc = std::allocator<Char>>
+    friend std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, const format_rfc<T, U>& formatter);
+
+private:
+    date_type& m_value;
+    format_type m_format;
+};
+
+// ----------------------------------------------------------------------------
+template <class Format, class Date, typename Char, typename Traits, class Alloc = std::allocator<Char>>
+std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, const format_rfc<Format, Date>& formatter)
 {
     typedef Format dt_format;
     typedef std::basic_string<Char, Traits, Alloc> dt_zone;
@@ -680,8 +691,9 @@ std::basic_istream<Char, Traits>& from_stream(std::basic_istream<Char, Traits>& 
     dt_zone  zone{};
     int      offset{};
 
-    parts = dt_format::read(stream, fmt, &zone, &offset);
-    value = dt_traits<Date>::join(parts, &zone, &offset);
+    parts = dt_format::read(stream, formatter.m_format, &zone, &offset);
+    formatter.m_value = dt_traits<Date>::join(parts, &zone, &offset);
+    
     return stream;
 }
 

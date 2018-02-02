@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <cwchar>
+#include <iomanip>
 #include <date/date-rfc.h>
 
 // ----------------------------------------------------------------------------
@@ -25,6 +26,7 @@ struct dt_traits < std::time_t >
     template <class CharT, class Traits, class Alloc = std::allocator<CharT>>
     static std::time_t join(const dt_parts& p, std::basic_string<CharT, Traits, Alloc>* zone, int32_t* offset)
     {
+        /*
         std::cout
             << "year = " << static_cast<int>(p.year)
             << ", month = " << static_cast<int>(p.month)
@@ -37,13 +39,16 @@ struct dt_traits < std::time_t >
             << ", zone = " << zone_name(zone)
             << ", offset = " << (!offset ? 0 : *offset)
             << std::endl;
+        */
 
-        int64_t value = (p.year - 1970) * 365
-            + static_cast<int64_t>(std::trunc((p.year - 1) / 4))
-            - static_cast<int64_t>(std::trunc((p.year - 1) / 100))
-            + static_cast<int64_t>(std::trunc((p.year - 1) / 400));
-
-        return 0;
+        std::tm dt;
+        dt.tm_year = p.year - 1900;
+        dt.tm_mon = p.month;
+        dt.tm_mday = p.day;
+        dt.tm_hour = p.hour;
+        dt.tm_min = p.minute;
+        dt.tm_sec = p.second;
+        return std::mktime(&dt);
     }
 };
 
@@ -70,17 +75,17 @@ void check_rfc1123()
         std::cerr << "Value: " << value << std::endl;
 
         std::istringstream stream(value);
-        std::time_t dt; 
+        std::time_t dt{};
         try 
         { 
-            date::from_stream(stream, date::rfc1123(), dt); 
+            stream >> date::format_rfc1123(dt);
         }
         catch (std::exception& e)
         { 
             std::cout << "Exception: " << e.what() << std::endl; 
         }
 
-        std::cout << "Result: failbit = " << (stream.fail() ? "true" : "false") << ", dt = " << dt << std::endl;
+        std::cout << "Result: failbit = " << (stream.fail() ? "true" : "false") << ", dt = " << std::put_time(std::gmtime(&dt), "%c") << std::endl;
     }
 }
 
@@ -101,26 +106,26 @@ void check_rfc3339()
         std::cerr << "Value: " << value << std::endl;
 
         std::istringstream stream(value);
-        std::time_t dt; 
+        std::time_t dt{};
         try 
-        { 
-            date::from_stream(stream, date::rfc3339(), dt); 
+        {
+            stream >> date::format_rfc3339(dt);
         }
         catch (std::exception& e)
         { 
             std::cout << "Exception: " << e.what() << std::endl; 
         }
-
-        std::cout << "Result: failbit = " << (stream.fail() ? "true" : "false") << ", dt = " << dt << std::endl;
+        
+        std::cout << "Result: failbit = " << (stream.fail() ? "true" : "false") << ", dt = " << std::put_time(std::gmtime(&dt), "%c") << std::endl;
     }
 }
 
 // ----------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-    //std::cout << "-----------------------------------------" << std::endl;
-    //std::cout << " Checking RFC1123..." << std::endl;
-    //check_rfc1123();
+    std::cout << "-----------------------------------------" << std::endl;
+    std::cout << " Checking RFC1123..." << std::endl;
+    check_rfc1123();
     
     std::cout << "-----------------------------------------" << std::endl;
     std::cout << " Checking RFC3339..." << std::endl;
