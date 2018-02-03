@@ -99,16 +99,36 @@ struct args_traits
 };
 
 // ----------------------------------------------------------------------------
+enum : bool { SignOptional = false, SignRequired = true };
+
+template <bool SignRequired>
+struct sign_traits;
+
+template <>
+struct sign_traits<SignOptional>
+{
+    enum : unsigned { min_length = 0 };
+    enum : unsigned { max_length = 1 };
+};
+
+template <>
+struct sign_traits<SignRequired>
+{
+    enum : unsigned { min_length = 1 };
+    enum : unsigned { max_length = 1 };
+};
+
+// ----------------------------------------------------------------------------
 #ifdef __GNUC__
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wenum-compare"
 #endif  // __GNUC__
 
 template <class T, class ...Args>
-struct cases_args_traits;
+struct cases_traits;
 
 template <class T1, class T2>
-struct cases_args_traits<T1, T2>
+struct cases_traits<T1, T2>
 {
     typedef typename std::conditional<(T1::min_length < T2::min_length), T1, T2>::type min_type;
     typedef typename std::conditional<(T1::max_length > T2::max_length), T1, T2>::type max_type;
@@ -118,10 +138,10 @@ struct cases_args_traits<T1, T2>
 };
 
 template <class T, class ...Args>
-struct cases_args_traits
+struct cases_traits
 {
-    typedef typename cases_args_traits<Args...>::min_type _args_min_type;
-    typedef typename cases_args_traits<Args...>::max_type _args_max_type;
+    typedef typename cases_traits<Args...>::min_type _args_min_type;
+    typedef typename cases_traits<Args...>::max_type _args_max_type;
     typedef typename std::conditional<(T::min_length < _args_min_type::min_length), T, _args_min_type>::type min_type;
     typedef typename std::conditional<(T::max_length > _args_max_type::max_length), T, _args_max_type>::type max_type;
 
@@ -170,21 +190,22 @@ static ru_t<UnsignedT, MinLength, MaxLength> ru(UnsignedT& value)
 }
 
 // ----------------------------------------------------------------------------
-template <class SignedT, unsigned MinLength, unsigned MaxLength>
+template <class SignedT, unsigned MinLength, unsigned MaxLength, bool SignMandatory>
 struct rs_t
 {
     typedef SignedT value_type;
-    enum : unsigned { min_length = MinLength };
-    enum : unsigned { max_length = MaxLength + 1 }; //!< Plus one character for sign.
+    enum : bool     { sign_mandatory = SignMandatory };
+    enum : unsigned { min_length = MinLength + sign_traits<SignMandatory>::min_length };
+    enum : unsigned { max_length = MaxLength + sign_traits<SignMandatory>::max_length };
     enum : bool     { need_cache = false };
 
     value_type& value;
 };
 
-template <unsigned MinLength, unsigned MaxLength, class SignedT>
-static rs_t<SignedT, MinLength, MaxLength> rs(SignedT& value)
+template <unsigned MinLength, unsigned MaxLength, bool SignMandatory, class SignedT>
+static rs_t<SignedT, MinLength, MaxLength, SignMandatory> rs(SignedT& value)
 {
-    return rs_t<SignedT, MinLength, MaxLength>{ value };
+    return rs_t<SignedT, MinLength, MaxLength, SignMandatory>{ value };
 }
 
 // ----------------------------------------------------------------------------
@@ -261,8 +282,8 @@ branch_t<Args...> branch(Args&& ...args)
 template <class ...Args>
 struct cases_t
 {
-    enum : unsigned { min_length = cases_args_traits<Args...>::min_length };
-    enum : unsigned { max_length = cases_args_traits<Args...>::max_length };
+    enum : unsigned { min_length = cases_traits<Args...>::min_length };
+    enum : unsigned { max_length = cases_traits<Args...>::max_length };
     enum : bool     { need_cache = true };
 
     cases_t(Args&& ...args) 
@@ -320,7 +341,7 @@ UnsignedT read_unsigned(std::basic_istream<CharT, Traits>& stream, size_t& pos, 
 
 // ----------------------------------------------------------------------------
 template <class SignedT, class CharT, class Traits>
-SignedT read_signed(std::basic_istream<CharT, Traits>& stream, size_t& pos, unsigned min_len, unsigned max_len)
+SignedT read_signed(std::basic_istream<CharT, Traits>& stream, size_t& pos, unsigned min_len, unsigned max_len, bool sign_required)
 {
     const auto ic = stream.peek();
     if (Traits::eq_int_type(ic, Traits::eof()))
@@ -336,6 +357,10 @@ SignedT read_signed(std::basic_istream<CharT, Traits>& stream, size_t& pos, unsi
     {
         (void)stream.get();
         ++pos;
+    }
+    else if (sign_required)
+    {
+        throw std::logic_error(std::string("invalid signed format at ") + std::to_string(pos));
     }
         
     const auto x = read_unsigned<SignedT>(stream, pos, min_len, max_len);
@@ -493,10 +518,10 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ru_t<Unsi
 }
 
 // ----------------------------------------------------------------------------
-template <class CharT, class Traits, class SignedT, unsigned MinLength, unsigned MaxLength, class ...Args>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, rs_t<SignedT, MinLength, MaxLength> a0, Args&& ...args)
+template <class CharT, class Traits, class SignedT, unsigned MinLength, unsigned MaxLength, bool SignRequired, class ...Args>
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, rs_t<SignedT, MinLength, MaxLength, SignRequired> a0, Args&& ...args)
 {
-    a0.value = read_signed<SignedT>(stream, pos, MinLength, MaxLength);
+    a0.value = read_signed<SignedT>(stream, pos, MinLength, MaxLength, SignRequired);
     read_impl(stream, pos, std::forward<Args>(args)...);
 }
 
@@ -672,8 +697,24 @@ struct format_rfc
     format_rfc(date_type& value, const format_type& format = format_type()) 
         : m_value(value), m_format(format) {}
     
-    template <class T, class U, typename Char, typename Traits, class Alloc = std::allocator<Char>>
-    friend std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, const format_rfc<T, U>& formatter);
+    template <typename CharT, typename Traits, class Alloc = std::allocator<CharT>>
+    std::basic_istream<CharT, Traits>& from_stream(std::basic_istream<CharT, Traits>& stream)
+    {
+        typedef Format dt_format;
+        typedef std::basic_string<CharT, Traits, Alloc> dt_zone;
+
+        dt_parts parts{};
+        dt_zone  zone{};
+        int      offset{};
+
+        parts = dt_format::read(stream, m_format, &zone, &offset);
+        m_value = dt_traits<Date>::join(parts, &zone, &offset);
+    
+        return stream;
+    }
+
+    template <class T, class U, typename CharT, typename Traits, class Alloc = std::allocator<CharT>>
+    friend std::basic_istream<CharT, Traits>& operator>>(std::basic_istream<CharT, Traits>& stream, format_rfc<T, U>& formatter);
 
 private:
     date_type& m_value;
@@ -681,20 +722,10 @@ private:
 };
 
 // ----------------------------------------------------------------------------
-template <class Format, class Date, typename Char, typename Traits, class Alloc = std::allocator<Char>>
-std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, const format_rfc<Format, Date>& formatter)
+template <class Format, class Date, typename CharT, typename Traits, class Alloc = std::allocator<CharT>>
+std::basic_istream<CharT, Traits>& operator>>(std::basic_istream<CharT, Traits>& stream, format_rfc<Format, Date>& formatter)
 {
-    typedef Format dt_format;
-    typedef std::basic_string<Char, Traits, Alloc> dt_zone;
-
-    dt_parts parts{};
-    dt_zone  zone{};
-    int      offset{};
-
-    parts = dt_format::read(stream, formatter.m_format, &zone, &offset);
-    formatter.m_value = dt_traits<Date>::join(parts, &zone, &offset);
-    
-    return stream;
+    return formatter.from_stream(stream);
 }
 
 } // namespace date

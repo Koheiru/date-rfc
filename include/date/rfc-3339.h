@@ -64,7 +64,7 @@ struct rfc3339
             ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), rc(':'), ru<2,2>(parts.second), optional(rc('.'), ru<1,9>(parts.nanosecond)),
             cases(
                 branch(rc('Z')), 
-                branch(rs<2,2>(offset_hour), rc(':'), ru<2,2>(offset_minute))));
+                branch(rs<2,2,SignRequired>(offset_hour), rc(':'), ru<2,2>(offset_minute))));
 
         if (offset)
             *offset = (offset_hour * 60 + offset_minute) * 60;

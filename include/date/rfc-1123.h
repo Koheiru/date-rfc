@@ -72,7 +72,7 @@ struct rfc1123
             ru<1,2>(parts.day), rc(' '), ra<3,3>(parts.month, month_names), rc(' '), ru<2,4>(parts.year), rc(' '), 
             ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), optional(rc(':'), ru<2,2>(parts.second)), rc(' '),
             cases(
-                branch(rs<2,2>(offset_hour), ru<2,2>(offset_minute)),
+                branch(rs<2,2,SignRequired>(offset_hour), ru<2,2>(offset_minute)),
                 branch(ra<2,3>(zone_index, zone_names))));
 
         if (offset)
