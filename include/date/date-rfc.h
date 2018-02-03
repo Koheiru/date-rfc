@@ -25,7 +25,6 @@
 
 //! TODO list:
 //  - read_abbr method: implement more efficient items comparison algorithm
-//  - format structures: add method for reading dates from c-string based on custom streambuf
 //  - custom CharT: fix compilation errors for custom CharT usage (not simple char type)
 //  - replace exceptions by failbit usage.
 //  - C++ features: use constexpr and other feaures.
