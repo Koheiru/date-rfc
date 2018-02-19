@@ -63,14 +63,14 @@ struct rfc822
         int offset_minute{};
         size_t zone_index(-1);
         
-        const auto weekday_names = weekday_names_short();
-        const auto month_names = month_names_short();
-        const auto zone_names = zone_names_rfc822();
+        const auto weekday_names = weekday_names_short<CharT>();
+        const auto month_names = month_names_short<CharT>();
+        const auto zone_names = zone_names_rfc822<CharT>();
 
         read(stream, pos, 
-            optional(ra<3,3>(parts.weekday, weekday_names), rc(','), rc(' ')),
-            ru<1,2>(parts.day), rc(' '), ra<3,3>(parts.month, month_names), rc(' '), ru<2,4>(parts.year), rc(' '), 
-            ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), optional(rc(':'), ru<2,2>(parts.second)), rc(' '),
+            optional(ra<3,3>(parts.weekday, weekday_names), rc(CharT{','}), rc(CharT{' '})),
+            ru<1,2>(parts.day), rc(CharT{' '}), ra<3,3>(parts.month, month_names), rc(CharT{' '}), ru<2,2>(parts.year), rc(CharT{' '}), 
+            ru<2,2>(parts.hour), rc(CharT{':'}), ru<2,2>(parts.minute), optional(rc(CharT{':'}), ru<2,2>(parts.second)), rc(CharT{' '}),
             cases(
                 branch(rs<2,2,SignRequired>(offset_hour), ru<2,2>(offset_minute)),
                 branch(ra<2,3>(zone_index, zone_names))));
@@ -78,7 +78,7 @@ struct rfc822
         if (offset)
             *offset = (offset_hour * 60 + offset_minute) * 60;
         if (zone && zone_index != -1)
-            *zone = std::move(dt_zone(*(zone_names.first + zone_index)));
+            *zone = dt_zone((zone_names.first + zone_index)->data());
 
         return parts;
     }

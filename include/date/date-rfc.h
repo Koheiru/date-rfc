@@ -25,7 +25,6 @@
 
 //! TODO list:
 //  - read_abbr method: implement more efficient items comparison algorithm
-//  - custom CharT: fix compilation errors for custom CharT usage (not simple char type)
 //  - replace exceptions by failbit usage.
 //  - C++ features: use constexpr and other feaures.
 

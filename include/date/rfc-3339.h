@@ -60,11 +60,11 @@ struct rfc3339
         int offset_minute(0);
 
         read(stream, pos, 
-            ru<4,4>(parts.year), rc('-'), ru<2,2>(parts.month), rc('-'), ru<2,2>(parts.day), rc('T'), 
-            ru<2,2>(parts.hour), rc(':'), ru<2,2>(parts.minute), rc(':'), ru<2,2>(parts.second), optional(rc('.'), ru<1,9>(parts.nanosecond)),
+            ru<4,4>(parts.year), rc(CharT{'-'}), ru<2,2>(parts.month), rc(CharT{'-'}), ru<2,2>(parts.day), rc(CharT{'T'}), 
+            ru<2,2>(parts.hour), rc(CharT{':'}), ru<2,2>(parts.minute), rc(CharT{':'}), ru<2,2>(parts.second), optional(rc(CharT{'.'}), ru<1,9>(parts.nanosecond)),
             cases(
-                branch(rc('Z')), 
-                branch(rs<2,2,SignRequired>(offset_hour), rc(':'), ru<2,2>(offset_minute))));
+                branch(rc(CharT{'Z'})), 
+                branch(rs<2,2,SignRequired>(offset_hour), rc(CharT{':'}), ru<2,2>(offset_minute))));
 
         if (offset)
             *offset = (offset_hour * 60 + offset_minute) * 60;

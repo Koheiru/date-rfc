@@ -51,28 +51,91 @@ namespace date
 // ----------------------------------------------------------------------------
 namespace details
 {
+    
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4351)
+#endif // defined(_MSC_VER)
+
+// ----------------------------------------------------------------------------
+//                               string
+// ----------------------------------------------------------------------------
+template <class CharT, unsigned Length>
+class string_literal
+{
+public:
+    typedef CharT               value_type;
+    typedef const value_type*   const_iterator;
+
+public:
+    string_literal() = default;
+    ~string_literal() = default;
+    
+    string_literal(const string_literal&) = default;
+    string_literal& operator=(const string_literal&) = default;
+    
+    template <unsigned Count>
+    string_literal(const CharT(&a)[Count])
+        : m_data()
+        , m_size(Count - 1)
+    {
+        static_assert(Length >= Count, "Passed string is too long");
+        for (size_t i = 0; i < Count; ++i)
+            m_data[i] = a[i];
+    }
+
+    template <unsigned Count, class U = CharT, class = typename std::enable_if<2 <= sizeof(U)>::type>
+    string_literal(const char(&a)[Count])
+        : m_data()
+        , m_size(Count - 1)
+    {
+        static_assert(Length >= Count, "Passed string is too long");
+        for (size_t i = 0; i < Count; ++i)
+            m_data[i] = a[i]; 
+    }
+
+    const value_type* data() const { return m_data; }
+    size_t size() const { return m_size; }
+    
+private:
+    CharT m_data[Length];
+    const size_t m_size;
+};
+
+template <class CharT, class Traits, class Allocator, unsigned Length>
+inline bool operator==(const string_literal<CharT, Length>& lhs, const std::basic_string<CharT, Traits, Allocator>& rhs)
+{
+    return (rhs.compare(lhs.data()) == 0);
+}
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif // defined(_MSC_VER)
 
 // ----------------------------------------------------------------------------
 //                               constants
 // ----------------------------------------------------------------------------
-inline std::pair<const char* const*, const char* const*> weekday_names_short()
+template <class CharT>
+inline std::pair<const string_literal<CharT, 4>*, const string_literal<CharT, 4>*> weekday_names_short()
 {
-    static const char* values[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    static const string_literal<CharT, 4> values[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
     return std::make_pair(values, values + sizeof(values) / sizeof(values[0]));
 }
 
 // ----------------------------------------------------------------------------
-inline std::pair<const char* const*, const char* const*> month_names_short()
+template <class CharT>
+inline std::pair<const string_literal<CharT, 4>*, const string_literal<CharT, 4>*> month_names_short()
 {
-    static const char* values[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    static const string_literal<CharT, 4> values[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
     return std::make_pair(values, values + sizeof(values) / sizeof(values[0]));
 }
 
 // ----------------------------------------------------------------------------
-inline std::pair<const char* const*, const char* const*> zone_names_rfc822()
+template <class CharT>
+inline std::pair<const string_literal<CharT, 4>*, const string_literal<CharT, 4>*> zone_names_rfc822()
 {
     //! Not including military codes (each code encoded by one symbol from 'A' to 'Z').
-    static const char* values[] = { "GMT", "UT", "EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT" };
+    static const string_literal<CharT, 4> values[] = { "GMT", "UT", "EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT" };
     return std::make_pair(values, values + sizeof(values) / sizeof(values[0]));
 }
 
@@ -385,7 +448,13 @@ IndexT read_abbr(std::basic_istream<CharT, Traits>& stream, size_t& pos, const I
         (void)stream.get(); ++pos;
         buffer[index] = Traits::to_char_type(ic);
 
-        const auto it = std::find(values_begin, values_end, std::basic_string<CharT, Traits, Alloc>(buffer));
+        auto it = values_begin;
+        while (it != values_end) {
+            if (*it == std::basic_string<CharT, Traits, Alloc>(buffer))
+                break;
+            ++it;
+        }
+        //const auto it = std::find(values_begin, values_end, std::basic_string<CharT, Traits, Alloc>(buffer));
         if (it != values_end)
             return static_cast<IndexT>(it - values_begin);
     }

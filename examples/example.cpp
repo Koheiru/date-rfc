@@ -5,6 +5,11 @@
 #include <iomanip>
 #include <date/date-rfc.h>
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif // defined(_MSC_VER)
+
 // ----------------------------------------------------------------------------
 const char* zone_name(const std::string* zone)
 {
@@ -72,7 +77,7 @@ void check_rfc1123()
     for (auto value : values)
     {
         std::cout << "-----------------------------------------" << std::endl;
-        std::cerr << "Value: " << value << std::endl;
+        std::cout << "Value: " << value << std::endl;
 
         std::istringstream stream(value);
         std::time_t dt{};
@@ -103,7 +108,7 @@ void check_rfc3339()
     for (auto value : values)
     {
         std::cout << "-----------------------------------------" << std::endl;
-        std::cerr << "Value: " << value << std::endl;
+        std::cout << "Value: " << value << std::endl;
 
         std::istringstream stream(value);
         std::time_t dt{};
@@ -121,6 +126,34 @@ void check_rfc3339()
 }
 
 // ----------------------------------------------------------------------------
+void check_wide()
+{
+    const std::wstring values[] = {
+        std::wstring(L"Tue, 31 Dec 2010 23:59:59 GMT"),
+        std::wstring(L"31 Dec 2010 23:59:59 +0430"),
+    };
+
+    for (auto value : values)
+    {
+        std::wcout << "-----------------------------------------" << std::endl;
+        std::wcout << "Value: " << value << std::endl;
+
+        std::wistringstream stream(value);
+        std::time_t dt{};
+        try 
+        {
+            stream >> date::format_rfc1123(dt);
+        }
+        catch (std::exception& e)
+        { 
+            std::wcout << "Exception: " << e.what() << std::endl; 
+        }
+        
+        std::wcout << "Result: failbit = " << (stream.fail() ? "true" : "false") << ", dt = " << std::put_time(std::gmtime(&dt), L"%c") << std::endl;
+    }
+}
+
+// ----------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
     std::cout << "-----------------------------------------" << std::endl;
@@ -131,5 +164,13 @@ int main(int argc, char* argv[])
     std::cout << " Checking RFC3339..." << std::endl;
     check_rfc3339();
 
+    std::cout << "-----------------------------------------" << std::endl;
+    std::cout << " Checking wide..." << std::endl;
+    check_wide();
+
 	return 0;
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif // defined(_MSC_VER)
