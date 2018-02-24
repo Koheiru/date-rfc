@@ -77,8 +77,8 @@ struct rfc822
 
         if (offset)
             *offset = (offset_hour * 60 + offset_minute) * 60;
-        if (zone && zone_index != -1)
-            *zone = dt_zone((zone_names.first + zone_index)->data());
+        if (zone)
+            *zone = (zone_index != -1) ? dt_zone(zone_names[zone_index].c_str()) : dt_zone();
 
         return parts;
     }

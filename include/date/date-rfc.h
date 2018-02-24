@@ -24,7 +24,6 @@
 #pragma once
 
 //! TODO list:
-//  - read_abbr method: implement more efficient items comparison algorithm
 //  - replace exceptions by failbit usage.
 //  - C++ features: use constexpr and other feaures.
 

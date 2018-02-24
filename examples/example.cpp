@@ -4,7 +4,6 @@
 #include <cwchar>
 #include <iomanip>
 #include <date/date-rfc.h>
-
 #if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable: 4996)
@@ -31,8 +30,7 @@ struct dt_traits < std::time_t >
     template <class CharT, class Traits, class Alloc = std::allocator<CharT>>
     static std::time_t join(const dt_parts& p, std::basic_string<CharT, Traits, Alloc>* zone, int32_t* offset)
     {
-        /*
-        std::cout
+        std::wcout
             << "year = " << static_cast<int>(p.year)
             << ", month = " << static_cast<int>(p.month)
             << ", day = " << static_cast<int>(p.day)
@@ -44,7 +42,6 @@ struct dt_traits < std::time_t >
             << ", zone = " << zone_name(zone)
             << ", offset = " << (!offset ? 0 : *offset)
             << std::endl;
-        */
 
         std::tm dt;
         dt.tm_year = p.year - 1900;

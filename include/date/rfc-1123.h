@@ -67,7 +67,7 @@ struct rfc1123
         const auto month_names = month_names_short<CharT>();
         const auto zone_names = zone_names_rfc822<CharT>();
 
-        read(stream, pos, 
+        read(stream, pos,
             optional(ra<3,3>(parts.weekday, weekday_names), rc(CharT{','}), rc(CharT{' '})),
             ru<1,2>(parts.day), rc(CharT{' '}), ra<3,3>(parts.month, month_names), rc(CharT{' '}), ru<2,4>(parts.year), rc(CharT{' '}), 
             ru<2,2>(parts.hour), rc(CharT{':'}), ru<2,2>(parts.minute), optional(rc(CharT{':'}), ru<2,2>(parts.second)), rc(CharT{' '}),
@@ -77,8 +77,8 @@ struct rfc1123
 
         if (offset)
             *offset = (offset_hour * 60 + offset_minute) * 60;
-        if (zone && zone_index != -1)
-            *zone = dt_zone((zone_names.first + zone_index)->data());
+        if (zone)
+            *zone = (zone_index != -1) ? dt_zone(zone_names[zone_index].c_str()) : dt_zone();
 
         return parts;
     }

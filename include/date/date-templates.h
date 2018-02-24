@@ -23,6 +23,8 @@
 //
 #pragma once
 #include <string>
+#include <vector>
+#include <array>
 #include <cctype>
 #include <istream>
 #include <algorithm>
@@ -32,6 +34,7 @@
 #include <type_traits>
 #include <tuple>
 #include <cassert>
+#include "integer_sequence.h"
 
 #ifdef __GNUC__
 # pragma GCC diagnostic push
@@ -59,53 +62,64 @@ namespace details
 
 // ----------------------------------------------------------------------------
 //                               string
+// ---------------------------------------------------------------------------
+template <class DstT, size_t DstN, class SrcT, unsigned SrcN>
+constexpr DstT character_cvt(const SrcT(&str)[SrcN], int index)
+{
+    return (index >= SrcN) ? static_cast<DstT>(0) : static_cast<DstT>(str[index]);
+}
+
+template<class DstT, size_t DstN, class SrcT, unsigned SrcN, std::size_t... Indexes>
+constexpr std::array<DstT, DstN> make_literal_array_helper(const SrcT(&str)[SrcN], std_impl::index_sequence<Indexes...>)
+{
+    return {{ character_cvt<DstT, DstN>(str, Indexes)... }};
+}
+
+template<class DstT, size_t DstN, class SrcT, unsigned SrcN>
+constexpr std::array<DstT, DstN> make_literal_array(const SrcT(&str)[SrcN])
+{
+    static_assert(DstN >= SrcN, "Source string is too long");
+    return make_literal_array_helper<DstT, DstN>(str, std_impl::make_index_sequence<DstN>{});
+}
+
 // ----------------------------------------------------------------------------
 template <class CharT, unsigned Length>
 class string_literal
 {
 public:
-    typedef CharT               value_type;
-    typedef const value_type*   const_iterator;
+    typedef CharT value_type;
 
 public:
-    string_literal() = default;
-    ~string_literal() = default;
-    
-    string_literal(const string_literal&) = default;
-    string_literal& operator=(const string_literal&) = default;
-    
     template <unsigned Count>
-    string_literal(const CharT(&a)[Count])
-        : m_data()
+    constexpr string_literal(const CharT(&value)[Count])
+        : m_data(make_literal_array<CharT, Length>(value))
         , m_size(Count - 1)
     {
         static_assert(Length >= Count, "Passed string is too long");
-        for (size_t i = 0; i < Count; ++i)
-            m_data[i] = a[i];
     }
 
     template <unsigned Count, class U = CharT, class = typename std::enable_if<2 <= sizeof(U)>::type>
-    string_literal(const char(&a)[Count])
-        : m_data()
+    constexpr string_literal(const char(&value)[Count])
+        : m_data(make_literal_array<CharT, Length>(value))
         , m_size(Count - 1)
     {
         static_assert(Length >= Count, "Passed string is too long");
-        for (size_t i = 0; i < Count; ++i)
-            m_data[i] = a[i]; 
     }
 
-    const value_type* data() const { return m_data; }
-    size_t size() const { return m_size; }
-    
+    constexpr const value_type* c_str() const { return m_data.data(); }
+    constexpr const value_type& operator[](size_t index) const { return m_data[index]; }
+    constexpr size_t size() const  { return m_size; }
+    constexpr bool empty() const { return (m_size == 0); }
+
 private:
-    CharT m_data[Length];
+    const std::array<CharT, Length> m_data;
     const size_t m_size;
 };
 
 template <class CharT, class Traits, class Allocator, unsigned Length>
 inline bool operator==(const string_literal<CharT, Length>& lhs, const std::basic_string<CharT, Traits, Allocator>& rhs)
 {
-    return (rhs.compare(lhs.data()) == 0);
+    return (rhs.compare(lhs.c_str()) == 0);
 }
 
 #if defined(_MSC_VER)
@@ -116,27 +130,27 @@ inline bool operator==(const string_literal<CharT, Length>& lhs, const std::basi
 //                               constants
 // ----------------------------------------------------------------------------
 template <class CharT>
-inline std::pair<const string_literal<CharT, 4>*, const string_literal<CharT, 4>*> weekday_names_short()
+constexpr std::array<string_literal<CharT, 4>, 7> weekday_names_short()
 {
-    static const string_literal<CharT, 4> values[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-    return std::make_pair(values, values + sizeof(values) / sizeof(values[0]));
+    typedef string_literal<CharT, 4> s;
+    return { s("Sun"), s("Mon"), s("Tue"), s("Wed"), s("Thu"), s("Fri"), s("Sat") };
 }
 
 // ----------------------------------------------------------------------------
 template <class CharT>
-inline std::pair<const string_literal<CharT, 4>*, const string_literal<CharT, 4>*> month_names_short()
+constexpr std::array<string_literal<CharT, 4>, 12> month_names_short()
 {
-    static const string_literal<CharT, 4> values[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-    return std::make_pair(values, values + sizeof(values) / sizeof(values[0]));
+    typedef string_literal<CharT, 4> s;
+    return { s("Jan"), s("Feb"), s("Mar"), s("Apr"), s("May"), s("Jun"), s("Jul"), s("Aug"), s("Sep"), s("Oct"), s("Nov"), s("Dec") };
 }
 
 // ----------------------------------------------------------------------------
 template <class CharT>
-inline std::pair<const string_literal<CharT, 4>*, const string_literal<CharT, 4>*> zone_names_rfc822()
+constexpr std::array<string_literal<CharT, 4>, 10> zone_names_rfc822()
 {
     //! Not including military codes (each code encoded by one symbol from 'A' to 'Z').
-    static const string_literal<CharT, 4> values[] = { "GMT", "UT", "EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT" };
-    return std::make_pair(values, values + sizeof(values) / sizeof(values[0]));
+    typedef string_literal<CharT, 4> s;
+    return { s("GMT"), s("UT"), s("EST"), s("EDT"), s("CST"), s("CDT"), s("MST"), s("MDT"), s("PST"), s("PDT") };
 }
 
 // ----------------------------------------------------------------------------
@@ -221,6 +235,7 @@ template <class CharT>
 struct rc_t
 {
     typedef CharT value_type;
+
     enum : unsigned { min_length = 1 };
     enum : unsigned { max_length = 1 };
     enum : bool     { need_cache = false };
@@ -239,6 +254,7 @@ template <class UnsignedT, unsigned MinLength, unsigned MaxLength>
 struct ru_t
 {
     typedef UnsignedT value_type;
+
     enum : unsigned { min_length = MinLength };
     enum : unsigned { max_length = MaxLength };
     enum : bool     { need_cache = false };
@@ -257,6 +273,7 @@ template <class SignedT, unsigned MinLength, unsigned MaxLength, bool SignMandat
 struct rs_t
 {
     typedef SignedT value_type;
+
     enum : bool     { sign_mandatory = SignMandatory };
     enum : unsigned { min_length = MinLength + sign_traits<SignMandatory>::min_length };
     enum : unsigned { max_length = MaxLength + sign_traits<SignMandatory>::max_length };
@@ -272,33 +289,28 @@ static rs_t<SignedT, MinLength, MaxLength, SignMandatory> rs(SignedT& value)
 }
 
 // ----------------------------------------------------------------------------
-template <class IndexT, class IteratorT, unsigned MinLength, unsigned MaxLength>
+template <class IndexT, class StringT, unsigned Count, unsigned MinLength, unsigned MaxLength>
 struct ra_t
 {
-    typedef IndexT      index_type;
-    typedef IteratorT   iterator_type;
+    typedef IndexT                      index_type;
+    typedef std::array<StringT, Count>  values_type;
+
     enum : unsigned { min_length = MinLength };
     enum : unsigned { max_length = MaxLength };
     enum : bool     { need_cache = false };
+    
+    ra_t(index_type& _index, const values_type& _values)
+        : index(_index), values(_values) 
+    {}
 
-    ra_t(index_type& _index, const iterator_type& _values_begin, const iterator_type& _values_end)
-        : index(_index), values_begin(_values_begin), values_end(_values_end) {}
-
-    index_type&   index;
-    iterator_type values_begin;
-    iterator_type values_end;
+    index_type&         index;
+    const values_type&  values;
 };
 
-template <unsigned MinLength, unsigned MaxLength, class IndexT, class IteratorT>
-static ra_t<IndexT, IteratorT, MinLength, MaxLength> ra(IndexT& index, const IteratorT& values_begin, const IteratorT& values_end)
+template <unsigned MinLength, unsigned MaxLength, class IndexT, class StringT, unsigned Count>
+static ra_t<IndexT, StringT, Count, MinLength, MaxLength> ra(IndexT& index, const std::array<StringT, Count>& values)
 {
-    return ra_t<IndexT, IteratorT, MinLength, MaxLength>{ index, values_begin, values_end };
-}
-
-template <unsigned MinLength, unsigned MaxLength, class IndexT, class IteratorT>
-static ra_t<IndexT, IteratorT, MinLength, MaxLength> ra(IndexT& index, const std::pair<IteratorT, IteratorT>& values_range)
-{
-    return ra<MinLength, MaxLength>(index, values_range.first, values_range.second);
+    return ra_t<IndexT, StringT, Count, MinLength, MaxLength>{ index, values };
 }
 
 // ----------------------------------------------------------------------------
@@ -431,35 +443,48 @@ SignedT read_signed(std::basic_istream<CharT, Traits>& stream, size_t& pos, unsi
 }
 
 // ----------------------------------------------------------------------------
-enum : unsigned { abbr_max_len = 32 };
-
-template <class IndexT, class IteratorT, class CharT, class Traits, class Alloc = std::allocator<CharT>>
-IndexT read_abbr(std::basic_istream<CharT, Traits>& stream, size_t& pos, const IteratorT& values_begin, const IteratorT& values_end, unsigned max_len)
+template <class IndexT, class StringT, unsigned Count, class CharT, class Traits = std::char_traits<CharT>>
+IndexT read_abbr(std::basic_istream<CharT, Traits>& stream, size_t& pos, const std::array<StringT, Count>& values, unsigned max_len)
 {
-    CharT buffer[abbr_max_len];
-    memset(buffer, 0, sizeof(buffer[0]) * (max_len + 1));
-    
-    for (size_t index = 0; index < max_len; ++index)
+    std::array<const CharT*, Count> str_list;
+    std::array<bool, Count> is_match;
+
+    for (size_t index = 0; index < Count; ++index)
+    {
+        str_list[index] = values[index].c_str();
+        is_match[index] = (str_list[index] != CharT{'\0'});
+    }
+
+    for (size_t i = 0; i < max_len; ++i)
     {
         const auto ic = stream.peek();
         if (Traits::eq_int_type(ic, Traits::eof()))
             throw std::logic_error(std::string("unexpected eof at ") + std::to_string(pos));
 
         (void)stream.get(); ++pos;
-        buffer[index] = Traits::to_char_type(ic);
+        const auto ch = Traits::to_char_type(ic);
 
-        auto it = values_begin;
-        while (it != values_end) {
-            if (*it == std::basic_string<CharT, Traits, Alloc>(buffer))
-                break;
-            ++it;
+        for (size_t index = 0; index < Count; ++index)
+        {
+            if (!is_match[index])
+                continue;
+
+            const CharT* str = str_list[index];
+            if (*str != ch)
+            {
+                is_match[index] = false;
+                continue;
+            }
+
+            ++str;
+            if (*str == CharT{'\0'})
+                return static_cast<IndexT>(index);
+            
+            str_list[index] = str;
         }
-        //const auto it = std::find(values_begin, values_end, std::basic_string<CharT, Traits, Alloc>(buffer));
-        if (it != values_end)
-            return static_cast<IndexT>(it - values_begin);
     }
-    
-    throw std::logic_error(std::string("invalid abbr format at ") + std::to_string(pos));
+
+    throw std::logic_error(std::string("unknown abbr format at ") + std::to_string(pos));
 }
 
 // ----------------------------------------------------------------------------
@@ -595,11 +620,10 @@ void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, rs_t<Sign
 }
 
 // ----------------------------------------------------------------------------
-template <class CharT, class Traits, class IndexT, class IteratorT, unsigned MinLength, unsigned MaxLength, class ...Args>
-void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<IndexT, IteratorT, MinLength, MaxLength> a0, Args&& ...args)
+template <class CharT, class Traits, class IndexT, class StringT, unsigned Count, unsigned MinLength, unsigned MaxLength, class ...Args>
+void read_impl(std::basic_istream<CharT, Traits>& stream, size_t& pos, ra_t<IndexT, StringT, Count, MinLength, MaxLength> a0, Args&& ...args)
 {
-    static_assert(MaxLength < abbr_max_len, "Exceeded the allowed length for ra object passed into read operation.");
-    a0.index = read_abbr<IndexT>(stream, pos, a0.values_begin, a0.values_end, MaxLength);
+    a0.index = read_abbr<IndexT>(stream, pos, a0.values, MaxLength);
     read_impl(stream, pos, std::forward<Args>(args)...);
 }
 
@@ -732,6 +756,15 @@ void read(std::basic_istream<CharT, Traits>& stream, size_t& pos, Args&& ...args
 
 } // namespace details
 
+// ----------------------------------------------------------------------------
+template <class T>
+struct array_size;
+
+template <class T, unsigned N>
+struct array_size<std::array<T, N>>
+{
+    enum { value = N };
+};
 
 // ----------------------------------------------------------------------------
 //                                common
