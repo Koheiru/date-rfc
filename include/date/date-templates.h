@@ -34,7 +34,7 @@
 #include <type_traits>
 #include <tuple>
 #include <cassert>
-#include "integer_sequence.h"
+#include "index_sequence.h"
 
 #ifdef __GNUC__
 # pragma GCC diagnostic push
