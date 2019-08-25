@@ -8,12 +8,16 @@ set(CMAKE_CXX_STANDARD 11)
 set(HEADER_FOLDER   "include")
 set(EXAMPLE_FOLDER  "examples")
 
-set(HEADER_FILES
-    "${HEADER_FOLDER}/date/date-rfc.h"
-    "${HEADER_FOLDER}/date/date-templates.h"
-    "${HEADER_FOLDER}/date/rfc-822.h"
-    "${HEADER_FOLDER}/date/rfc-1123.h"
-    "${HEADER_FOLDER}/date/rfc-3339.h")
+file(GLOB MAIN_HEADERS "${HEADER_FOLDER}/date-rfc/*.h")
+file(GLOB IMPL_HEADERS "${HEADER_FOLDER}/date-rfc/details/*.h")
+if (MSVC)
+    source_group("Header Files" FILES ${MAIN_HEADERS}) 
+    source_group("Header Files\\details" FILES ${IMPL_HEADERS}) 
+endif()
+
+set(HEADER_FILES "")
+list(APPEND HEADER_FILES ${MAIN_HEADERS})
+list(APPEND HEADER_FILES ${IMPL_HEADERS})
 
 add_library(date-rfc INTERFACE)
 target_include_directories(date-rfc INTERFACE

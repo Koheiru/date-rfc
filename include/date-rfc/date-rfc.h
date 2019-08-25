@@ -1,7 +1,7 @@
 //
 // The MIT License (MIT)
 //
-// Copyright (c) 2018 Yury Prostov
+// Copyright (c) 2019 Yury Prostov
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,12 +22,5 @@
 // SOFTWARE.
 //
 #pragma once
-
-//! TODO list:
-//  - replace exceptions by failbit usage.
-//  - C++ features: use constexpr and other feaures.
-
-#include "date-templates.h"
-#include "rfc-822.h"
 #include "rfc-1123.h"
-#include "rfc-3339.h"
+//#include "rfc-3339.h"
