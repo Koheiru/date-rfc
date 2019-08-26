@@ -10,43 +10,6 @@ It is header only and self-sufficient library, so just copy and use it:
 git clone https://github.com/Koheiru/date-rfc.git
 ```
 
-## RFC 822 specification
-Specification: https://tools.ietf.org/html/rfc822#section-5
-
-Example: Tue, 21 Jun 89 13:45:31 GMT
-
-Format:
-
-     date-time   =  [ day "," ] date time        ; dd mm yy
-                                                 ;  hh:mm:ss zzz
-     
-     day         =  "Mon"  / "Tue" /  "Wed"  / "Thu"
-                 /  "Fri"  / "Sat" /  "Sun"
-     
-     date        =  1*2DIGIT month 2DIGIT        ; day month year
-                                                 ;  e.g. 20 Jun 82
-     
-     month       =  "Jan"  /  "Feb" /  "Mar"  /  "Apr"
-                 /  "May"  /  "Jun" /  "Jul"  /  "Aug"
-                 /  "Sep"  /  "Oct" /  "Nov"  /  "Dec"
-     
-     time        =  hour zone                    ; ANSI and Military
-     
-     hour        =  2DIGIT ":" 2DIGIT [":" 2DIGIT]
-                                                 ; 00:00:00 - 23:59:59
-     
-     zone        =  "UT"  / "GMT"                ; Universal Time
-                                                 ; North American : UT
-                 /  "EST" / "EDT"                ;  Eastern:  - 5/ - 4
-                 /  "CST" / "CDT"                ;  Central:  - 6/ - 5
-                 /  "MST" / "MDT"                ;  Mountain: - 7/ - 6
-                 /  "PST" / "PDT"                ;  Pacific:  - 8/ - 7
-                 /  1ALPHA                       ; Military: Z = UT;
-                                                 ;  A:-1; (J not used)
-                                                 ;  M:-12; N:+1; Y:+12
-                 / ( ("+" / "-") 4DIGIT )        ; Local differential
-                                                 ;  hours+min. (HHMM)
-
 ## RFC 1123 specification
 Specification: https://tools.ietf.org/html/rfc1123#page-55
 
