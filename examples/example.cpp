@@ -12,11 +12,11 @@
 void check_rfc1123()
 {
     const std::string values[] = {
-        std::string("Tue, 31 Dec 2010 23:59:59 GMT"),
-        std::string("Tue, 31 Dec 2010 23:59:59 EDT"),
-        std::string("Tue, 31 Dec 2010 23:59:59 +0430"),
-        std::string("Tue, 31 Dec 2010 23:59:59 -0235"),
-        std::string("Tue, 31 Dec 2010 23:59 -0555"),
+        std::string("Fri, 31 Dec 2010 23:59:59 GMT"),
+        std::string("Fri, 31 Dec 2010 23:59:59 EDT"),
+        std::string("Fri, 31 Dec 2010 23:59:59 +0430"),
+        std::string("Fri, 31 Dec 2010 23:59:59 -0235"),
+        std::string("Fri, 31 Dec 2010 23:59 -0555"),
         std::string("31 Dec 2010 23:59:59 GMT"),
         std::string("31 Dec 2010 23:59:59 EDT"),
         std::string("31 Dec 2010 23:59:59 +0430"),
@@ -35,7 +35,7 @@ void check_rfc1123()
         std::istringstream stream(value);
         stream >> date::format_rfc1123(dt);
         std::cout << "Result: failbit = " << (stream.fail() ? "true" : "false") << ", dt = " << std::put_time(std::gmtime(&dt), "%c") << std::endl;
-        //std::cout << "Revert: " << date::format_rfc1123(dt) << std::endl;
+        std::cout << "Revert: " << date::format_rfc1123(dt) << std::endl;
     }
 }
 

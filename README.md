@@ -1,6 +1,5 @@
 # date-rfc
 Header only C++ library for parsing dates defined by rfc specifications:
- - RFC 822 (example: Tue, 21 Jun 89 13:45:31 GMT)
  - RFC 1123 (example: Tue, 31 Dec 2010 23:59:59 GMT)
  - RFC 3339 (example: 1985-04-12T23:20:50.52Z)
 

@@ -59,13 +59,13 @@ struct rfc1123
     {
         using s = static_string<Char, 4>;
         return {
-            std::make_pair(s("Sun"), uint8_t(1)),
-            std::make_pair(s("Mon"), uint8_t(2)),
-            std::make_pair(s("Tue"), uint8_t(3)),
-            std::make_pair(s("Wed"), uint8_t(4)),
-            std::make_pair(s("Thu"), uint8_t(5)),
-            std::make_pair(s("Fri"), uint8_t(6)),
-            std::make_pair(s("Sat"), uint8_t(7)),
+            std::make_pair(s("Mon"), uint8_t(1)),
+            std::make_pair(s("Tue"), uint8_t(2)),
+            std::make_pair(s("Wed"), uint8_t(3)),
+            std::make_pair(s("Thu"), uint8_t(4)),
+            std::make_pair(s("Fri"), uint8_t(5)),
+            std::make_pair(s("Sat"), uint8_t(6)),
+            std::make_pair(s("Sun"), uint8_t(7)),
         };
     }
 
@@ -121,7 +121,7 @@ struct rfc1123
         if (pos == end)
             return false;
 
-        dt = parts{};
+        std::memset(static_cast<void*>(&dt), 0, sizeof(parts));
         int16_t offset_hours = 0;
         int16_t offset_minutes = 0;
         auto fmt = format(
@@ -149,10 +149,14 @@ struct rfc1123
 
         if (dt.year < 100)
             dt.year += 1900;
-        if (dt.week_day == 0)
-            dt.week_day = calendar_helper::day_of_week(dt.year, dt.month, dt.day);
         if (dt.offset_in_minutes == 0)
             dt.offset_in_minutes = offset_hours * 60 + (offset_hours > 0 ? offset_minutes : -offset_minutes);
+
+        const auto week_day = calendar_helper::day_of_week(dt.year, dt.month, dt.day);
+        if (dt.week_day == 0)
+            dt.week_day = week_day;
+        if (dt.week_day != week_day)
+            return false;
 
         return true;
     }
@@ -160,6 +164,15 @@ struct rfc1123
     template <class Iterator>
     static bool write(const parts& dt, Iterator& dst)
     {
+        using char_type = typename iterator_traits<Iterator>::value_type;
+        constexpr auto weekday_aliases = weekday_names<char_type>();
+
+        const auto& weekday = weekday_aliases[dt.week_day - 1].first;
+        for (const char_type* str = weekday.c_str(); *str != char_type{ '\0' }; ++str)
+            *(dst++) = *str;
+        *(dst++) = char_type{ ',' };
+        *(dst++) = char_type{ ' ' };
+
         return true;
     }
 };
