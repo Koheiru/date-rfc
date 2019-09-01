@@ -25,4 +25,17 @@
 
 #include "rfc-1123_type.h"
 #include "rfc-1123_converter.h"
-#include "rfc-1123_formatter.h"
+#include "date_formatter.h"
+
+// ----------------------------------------------------------------------------
+namespace date
+{
+
+// ----------------------------------------------------------------------------
+template <class Date, class Converter = date_converter<rfc1123, Date>>
+format_rfc<rfc1123, Date> format_rfc1123(Date& value, const rfc1123& format = rfc1123())
+{
+    return format_rfc<rfc1123, Date, Converter>(value, format);
+}
+
+} // namespace date
