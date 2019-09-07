@@ -91,35 +91,35 @@ struct rfc1123
     template <class Char>
     static constexpr std::array<std::pair<static_string<Char, 4>, uint8_t>, 7> weekday_names()
     {
-        using s = static_string<Char, 4>;
+        using string = static_string<Char, 4>;
         return {
-            std::make_pair(s("Mon"), uint8_t(1)),
-            std::make_pair(s("Tue"), uint8_t(2)),
-            std::make_pair(s("Wed"), uint8_t(3)),
-            std::make_pair(s("Thu"), uint8_t(4)),
-            std::make_pair(s("Fri"), uint8_t(5)),
-            std::make_pair(s("Sat"), uint8_t(6)),
-            std::make_pair(s("Sun"), uint8_t(7)),
+            std::make_pair(string("Mon"), uint8_t(1)),
+            std::make_pair(string("Tue"), uint8_t(2)),
+            std::make_pair(string("Wed"), uint8_t(3)),
+            std::make_pair(string("Thu"), uint8_t(4)),
+            std::make_pair(string("Fri"), uint8_t(5)),
+            std::make_pair(string("Sat"), uint8_t(6)),
+            std::make_pair(string("Sun"), uint8_t(7)),
         };
     }
 
     template <class Char>
     static constexpr std::array<std::pair<static_string<Char, 4>, uint8_t>, 12> month_names()
     {
-        using s = static_string<Char, 4>;
+        using string = static_string<Char, 4>;
         return {
-            std::make_pair(s("Jan"), uint8_t(1)),
-            std::make_pair(s("Feb"), uint8_t(2)),
-            std::make_pair(s("Mar"), uint8_t(3)),
-            std::make_pair(s("Apr"), uint8_t(4)),
-            std::make_pair(s("May"), uint8_t(5)),
-            std::make_pair(s("Jun"), uint8_t(6)),
-            std::make_pair(s("Jul"), uint8_t(7)),
-            std::make_pair(s("Aug"), uint8_t(8)),
-            std::make_pair(s("Sep"), uint8_t(9)),
-            std::make_pair(s("Oct"), uint8_t(10)),
-            std::make_pair(s("Nov"), uint8_t(11)),
-            std::make_pair(s("Dec"), uint8_t(12)),
+            std::make_pair(string("Jan"), uint8_t(1)),
+            std::make_pair(string("Feb"), uint8_t(2)),
+            std::make_pair(string("Mar"), uint8_t(3)),
+            std::make_pair(string("Apr"), uint8_t(4)),
+            std::make_pair(string("May"), uint8_t(5)),
+            std::make_pair(string("Jun"), uint8_t(6)),
+            std::make_pair(string("Jul"), uint8_t(7)),
+            std::make_pair(string("Aug"), uint8_t(8)),
+            std::make_pair(string("Sep"), uint8_t(9)),
+            std::make_pair(string("Oct"), uint8_t(10)),
+            std::make_pair(string("Nov"), uint8_t(11)),
+            std::make_pair(string("Dec"), uint8_t(12)),
         };
     }
 
@@ -127,19 +127,19 @@ struct rfc1123
     static constexpr std::array<std::pair<static_string<Char, 4>, int16_t>, 11> zone_names()
     {
         //! Ignore military zones except Z-zone.
-        using s = static_string<Char, 4>;
+        using string = static_string<Char, 4>;
         return {
-            std::make_pair(s("Z"),   int16_t(0)),
-            std::make_pair(s("GMT"), int16_t(0)),
-            std::make_pair(s("UT"),  int16_t(0)),
-            std::make_pair(s("EST"), int16_t(-5 * 60)),
-            std::make_pair(s("EDT"), int16_t(-4 * 60)),
-            std::make_pair(s("CST"), int16_t(-6 * 60)),
-            std::make_pair(s("CDT"), int16_t(-5 * 60)),
-            std::make_pair(s("MST"), int16_t(-7 * 60)),
-            std::make_pair(s("MDT"), int16_t(-6 * 60)),
-            std::make_pair(s("PST"), int16_t(-8 * 60)),
-            std::make_pair(s("PDT"), int16_t(-7 * 60)),
+            std::make_pair(string("Z"),   int16_t(0)),
+            std::make_pair(string("GMT"), int16_t(0)),
+            std::make_pair(string("UT"),  int16_t(0)),
+            std::make_pair(string("EST"), int16_t(-5 * 60)),
+            std::make_pair(string("EDT"), int16_t(-4 * 60)),
+            std::make_pair(string("CST"), int16_t(-6 * 60)),
+            std::make_pair(string("CDT"), int16_t(-5 * 60)),
+            std::make_pair(string("MST"), int16_t(-7 * 60)),
+            std::make_pair(string("MDT"), int16_t(-6 * 60)),
+            std::make_pair(string("PST"), int16_t(-8 * 60)),
+            std::make_pair(string("PDT"), int16_t(-7 * 60)),
         };
     }
 
@@ -158,8 +158,8 @@ struct rfc1123
         parts dt{};
         std::memset(static_cast<void*>(&dt), 0, sizeof(parts));
 
-        int16_t offset_hours = 0;
-        int16_t offset_minutes = 0;
+        offset_type offset_hours = 0;
+        offset_type offset_minutes = 0;
         auto fmt = format(
             optional(
                 aliases(dt.week_day, weekday_aliases), 

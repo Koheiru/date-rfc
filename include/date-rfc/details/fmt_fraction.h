@@ -22,19 +22,9 @@
 // SOFTWARE.
 //
 #pragma once
-#include <tuple>
-#include "iterator_traits.h"
-#include "index_sequence.h"
-#include "input_wrapper.h"
-#include "fmt_traits.h"
-#include "fmt_character.h"
-#include "fmt_characters.h"
+#include <utility>
 #include "fmt_unsigned_integer.h"
-#include "fmt_signed_integer.h"
-#include "fmt_fraction.h"
-#include "fmt_aliases.h"
-#include "fmt_optional.h"
-#include "fmt_cases.h"
+#include "iterator_traits.h"
 
 #ifdef __GNUC__
 # pragma GCC diagnostic push
@@ -48,38 +38,64 @@
 // ----------------------------------------------------------------------------
 namespace date
 {
+// ----------------------------------------------------------------------------
+//                           types: fraction
+// ----------------------------------------------------------------------------
+template <class UnsignedInt, unsigned Width>
+struct fraction_t
+{
+    using value_type = UnsignedInt;
+
+    enum : unsigned { min_length = 1 };
+    enum : unsigned { max_length = Width };
+    enum : bool { need_cache = false };
+
+    fraction_t(value_type& value) : value(value) {}
+    ~fraction_t() = default;
+
+    value_type& value;
+};
 
 // ----------------------------------------------------------------------------
-template <class Iterator>
-Iterator& skip_spaces(Iterator& pos, const Iterator& end)
+template <unsigned Width, class UnsignedInt>
+fraction_t<UnsignedInt, Width> fraction(UnsignedInt& value)
 {
-    using char_type = typename iterator_traits<Iterator>::value_type;
-    for (; pos != end; ++pos)
+    return fraction_t<UnsignedInt, Width>{ value };
+}
+
+// ----------------------------------------------------------------------------
+template <class Iterator, class UnsignedInt, unsigned Width, class ...Others>
+bool read_impl(Iterator& pos, const Iterator& end, fraction_t<UnsignedInt, Width>& fmt, Others&&... others)
+{
+    using char_type  = typename iterator_traits<Iterator>::value_type;
+
+    auto x = UnsignedInt{ 0 };
+    auto count = std::size_t{ 0 };
+    while (count < Width)
     {
-        const char_type ch = *pos;
-        constexpr auto spaces = make_static_string<char_type>(" \t\n\v\f\r");
-        if (!spaces.contains(ch))
+        if (pos == end)
             break;
+
+        const char_type ch = *pos;
+        if ((ch < char_type{ '0' }) || (ch > char_type{ '9' }))
+            break;
+
+        x = 10 * x + static_cast<UnsignedInt>(ch - char_type{ '0' });
+        ++count;
+        ++pos; 
     }
-    return pos;
-}
 
-// ----------------------------------------------------------------------------
-template <class ...Formatters>
-std::tuple<Formatters...> format(Formatters&& ...formatters)
-{
-    return std::make_tuple(std::forward<Formatters>(formatters)...);
-}
+    if (count == 0)
+        return false;
 
-// ----------------------------------------------------------------------------
-template <class Iterator, class ...Formatters>
-bool read(Iterator& pos, const Iterator& end, std::tuple<Formatters...>& format)
-{
-    enum : unsigned { max_length = args_traits<Formatters...>::max_length };
-    enum : bool { need_cache = args_traits<Formatters...>::need_cache && input_traits<Iterator>::need_cache };
+    while (count < Width)
+    {
+        x = 10 * x;
+        ++count;
+    }
     
-    input_wrapper_t<Iterator, max_length, need_cache> wrapper(pos, end);
-    return read_impl(wrapper.begin(), wrapper.end(), format, std_impl::make_index_sequence<sizeof...(Formatters)>{});
+    fmt.value = x;
+    return read_impl(pos, end, std::forward<Others>(others)...);
 }
 
 } // namespace date

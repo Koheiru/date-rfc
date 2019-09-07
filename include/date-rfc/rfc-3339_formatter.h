@@ -25,4 +25,17 @@
 
 #include "rfc-3339_type.h"
 #include "rfc-3339_converter.h"
-#include "rfc-3339_formatter.h"
+#include "date_formatter.h"
+
+// ----------------------------------------------------------------------------
+namespace date
+{
+
+// ----------------------------------------------------------------------------
+template <class Date, class Converter = date_converter<rfc3339, Date>>
+format_rfc<rfc3339, Date> format_rfc3339(Date& value, const rfc3339& format = rfc3339())
+{
+    return format_rfc<rfc3339, Date, Converter>(value, format);
+}
+
+} // namespace date
