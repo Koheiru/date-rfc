@@ -26,6 +26,7 @@
 #include <cctype>
 #include <ctime>
 #include <cmath>
+#include <cstring>
 #include <iterator>
 #include "details/static_string.h"
 #include "details/iterator_traits.h"

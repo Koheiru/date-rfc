@@ -90,7 +90,8 @@ bool read_impl(Iterator& pos, const Iterator& end, signed_integer_t<SignedInt, M
         ++pos;
 
     auto x = SignedInt{ 0 };
-    if (!read_impl(pos, end, unsigned_integer<MinLength, MaxLength>(x)))
+    auto unsignedFmt = unsigned_integer<MinLength, MaxLength>(x);
+    if (!read_impl(pos, end, unsignedFmt))
         return false;
 
     const bool is_negative = (ch == char_type{ '-' });

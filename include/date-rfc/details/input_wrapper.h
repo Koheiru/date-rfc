@@ -93,11 +93,11 @@ class iterator_proxy : public std::iterator<std::forward_iterator_tag, typename 
 {
 public:
     using parent_type = std::iterator<std::forward_iterator_tag, typename iterator_traits<Iterator>::value_type>;
-    using parent_type::value_type;
-    using parent_type::difference_type;
-    using parent_type::pointer;
-    using parent_type::reference;
-    using parent_type::iterator_category;
+    using value_type = typename parent_type::value_type;
+    using difference_type = typename parent_type::difference_type;
+    using pointer = typename parent_type::pointer;
+    using reference = typename parent_type::reference;
+    using iterator_category = typename parent_type::iterator_category;
 
 public:
     iterator_proxy(Iterator& srcIt, const Iterator& srcEnd, value_type* cache, std::size_t& cacheSize)

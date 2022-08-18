@@ -47,6 +47,9 @@ struct format_rfc
     friend std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, format_rfc<T, U, C>& formatter);
 
     template <class T, class U, class C, class Char, class Traits>
+    friend std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, format_rfc<T, U, C>&& formatter);
+
+    template <class T, class U, class C, class Char, class Traits>
     friend std::basic_ostream<Char, Traits>& operator<<(std::basic_ostream<Char, Traits>& stream, const format_rfc<T, U, C>& formatter);
 
 private:
@@ -56,9 +59,9 @@ private:
 
 // ----------------------------------------------------------------------------
 template <class Format, class Date, class Converter, class Char, class Traits>
-std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, format_rfc<Format, Date, Converter>& formatter)
+inline std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, format_rfc<Format, Date, Converter>& formatter)
 {
-    Format::parts parts{};
+    typename Format::parts parts{};
     std::istreambuf_iterator<Char> end{};
     std::istreambuf_iterator<Char> pos(stream.rdbuf());
     if (!Format::read(pos, end, parts) || !Converter::from_parts(parts, formatter.m_value))
@@ -68,9 +71,21 @@ std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& s
 
 // ----------------------------------------------------------------------------
 template <class Format, class Date, class Converter, class Char, class Traits>
-std::basic_ostream<Char, Traits>& operator<<(std::basic_ostream<Char, Traits>& stream, const format_rfc<Format, Date, Converter>& formatter)
+inline std::basic_istream<Char, Traits>& operator>>(std::basic_istream<Char, Traits>& stream, format_rfc<Format, Date, Converter>&& formatter)
 {
-    Format::parts parts{};
+    typename Format::parts parts{};
+    std::istreambuf_iterator<Char> end{};
+    std::istreambuf_iterator<Char> pos(stream.rdbuf());
+    if (!Format::read(pos, end, parts) || !Converter::from_parts(parts, formatter.m_value))
+        stream.setstate(std::ios::failbit);
+    return stream;
+}
+
+// ----------------------------------------------------------------------------
+template <class Format, class Date, class Converter, class Char, class Traits>
+inline std::basic_ostream<Char, Traits>& operator<<(std::basic_ostream<Char, Traits>& stream, const format_rfc<Format, Date, Converter>& formatter)
+{
+    typename Format::parts parts{};
     std::ostreambuf_iterator<Char> dst(stream);
     if (!Converter::to_parts(formatter.m_value, parts) || !Format::write(parts, dst))
         stream.setstate(std::ios::failbit);

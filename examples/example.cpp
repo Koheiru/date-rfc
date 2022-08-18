@@ -103,7 +103,7 @@ void check_rfc3339()
 // ----------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-    //check_rfc1123();
+    check_rfc1123();
     check_rfc3339();
     return 0;
 }

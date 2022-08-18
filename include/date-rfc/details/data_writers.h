@@ -55,24 +55,7 @@ struct characters_writer
 
 // ----------------------------------------------------------------------------
 template <int Width>
-struct number_writer
-{
-    template <class Iterator, class Number>
-    static void write(Iterator& dst, Number value)
-    {
-        using char_type = typename iterator_traits<Iterator>::value_type;
-        constexpr auto digits = number_writer<0>::digits<char_type>();
-        if (value == 0)
-        {
-            for (int i = 0; i < Width - 1; ++i)
-                *(dst++) = digits[0];
-            *(dst++) = digits[0];
-            return;
-        }
-        number_writer<Width - 1>::write(dst, value / 10);
-        *(dst++) = digits[value % 10];
-    }
-};
+struct number_writer;
 
 template <>
 struct number_writer<0>
@@ -91,6 +74,26 @@ struct number_writer<0>
         if (value == 0)
             return;
         number_writer<0>::write(dst, value / 10);
+        *(dst++) = digits[value % 10];
+    }
+};
+
+template <int Width>
+struct number_writer
+{
+    template <class Iterator, class Number>
+    static void write(Iterator& dst, Number value)
+    {
+        using char_type = typename iterator_traits<Iterator>::value_type;
+        constexpr auto digits = number_writer<0>::digits<char_type>();
+        if (value == 0)
+        {
+            for (int i = 0; i < Width - 1; ++i)
+                *(dst++) = digits[0];
+            *(dst++) = digits[0];
+            return;
+        }
+        number_writer<Width - 1>::write(dst, value / 10);
         *(dst++) = digits[value % 10];
     }
 };
